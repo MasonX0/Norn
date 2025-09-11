@@ -18,11 +18,12 @@ import org.jetbrains.compose.ui.tooling.preview.Preview
 
 import norn.composeapp.generated.resources.Res
 import norn.composeapp.generated.resources.compose_multiplatform
+import ru.bpo.norn.theme.NornTheme
 
 @Composable
 @Preview
 fun App() {
-    MaterialTheme {
+    NornTheme {
         var showContent by remember { mutableStateOf(false) }
         Column(
             modifier = Modifier

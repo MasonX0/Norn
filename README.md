@@ -1,3 +1,38 @@
+# Вопросы
+1.В приказе ознакомления нету группы для конкретного ученика, а в отчете есть, можно
+реализовать так: отдельно выбирать группы для каждого ученика из выпадающего списка
+(список имен студентов будет выводится в список)
+
+2.//?
+val nameOfSpeciality:String,
+val codeOfSpeciality: String,
+//?
+val headOfPractice: String,
+val directorName:String,
+\//?
+val group: String,
+//?
+val cityOfPractice:String?,
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 This is a Kotlin Multiplatform project targeting Android, Web, Desktop (JVM).
 
 * [/composeApp](./composeApp/src) is for code that will be shared across your Compose Multiplatform applications.

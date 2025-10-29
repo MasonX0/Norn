@@ -27,11 +27,13 @@ kotlin {
     }
     
     sourceSets {
+
         androidMain.dependencies {
             implementation(compose.preview)
             implementation(libs.androidx.activity.compose)
         }
         commonMain.dependencies {
+            implementation("org.jetbrains.androidx.navigation:navigation-compose:2.9.0")
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.material3)
@@ -47,6 +49,11 @@ kotlin {
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutinesSwing)
+        }
+        jvmTest.dependencies {
+            implementation(libs.kotlin.test)  // Kotlin test framework
+            implementation("org.junit.jupiter:junit-jupiter:5.9.2")  // JUnit 5
+            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")  // Для тестов с корутинами
         }
     }
 }
@@ -84,7 +91,7 @@ dependencies {
 
 compose.desktop {
     application {
-        mainClass = "ru.bpo.norn.MainKt"
+        mainClass = "ru.bpo.norn.jwmMain.MainKt"
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)

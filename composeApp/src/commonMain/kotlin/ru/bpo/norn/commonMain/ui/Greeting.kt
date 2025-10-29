@@ -1,4 +1,6 @@
-package ru.bpo.norn
+package ru.bpo.norn.commonMain.ui
+
+import ru.bpo.norn.getPlatform
 
 class Greeting {
     private val platform = getPlatform()

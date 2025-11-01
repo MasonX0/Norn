@@ -10,9 +10,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import ru.bpo.norn.jwmMain.viewmodel.NornViewModel
 import ru.bpo.norn.commonMain.models.Group
-import ru.bpo.norn.commonMain.models.Student
 import javax.swing.JFileChooser
 import javax.swing.filechooser.FileNameExtensionFilter
+import java.io.File
 
 @Composable
 fun MainScreen() {
@@ -20,6 +20,9 @@ fun MainScreen() {
 
     val groups by viewModel.groups.collectAsState()
     val reportFile by viewModel.reportFile.collectAsState()
+
+    var generationResult by remember { mutableStateOf<String?>(null) }
+    var isLoading by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -32,73 +35,94 @@ fun MainScreen() {
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Кнопка выбора файла через диалог
+        // Кнопка выбора шаблона
         Button(onClick = {
-            val fileChooser = JFileChooser().apply{
-                dialogTitle = "Выберите отчетный файл"
-                // Добавляем фильтры сразу в цепочке
-                addChoosableFileFilter(FileNameExtensionFilter("PDF файлы (*.pdf)", "pdf"))
-                addChoosableFileFilter(FileNameExtensionFilter("Excel файлы", "xlsx", "xls"))
-                addChoosableFileFilter(FileNameExtensionFilter("Word документы", "docx", "doc"))
-                fileFilter = FileNameExtensionFilter("Все документы", "pdf", "xlsx", "xls", "docx", "doc")
-                //Показывать ли опцию все файлы? isAcceptAllFileFilterUsed = false
+            val fileChooser = JFileChooser().apply {
+                // Путь по умолчанию - рабочий стол
+                currentDirectory = File(System.getProperty("user.home"), "Desktop")
+                dialogTitle = "Выберите шаблон документа"
+                addChoosableFileFilter(FileNameExtensionFilter("Word документы (*.docx)", "docx"))
+                fileFilter = FileNameExtensionFilter("Word документы", "docx")
             }
 
             if (fileChooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
                 viewModel.selectReportFile(fileChooser.selectedFile)
             }
         }) {
-            Text("Выбрать файл отчета")
+            Text("Выбрать шаблон Word документа")
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Кнопка добавления группы
-        Button(onClick = {
-            val testStudent = Student(
-                name = "Иван Иванов",
-                group = "ИТ-21",
-                gradeForPractice = "Отлично",
-                nameOfPracticeBase = "БПО",
-                typeOfPractice = "Производственная",
-                periodOfPractice = "01.09.2024 - 30.11.2024",
-                formOfPractice = "Очная",
-                withPayment = true,
-                cityOfPractice = "Москва",
-                nameOfSpeciality = "Информационные технологии",
-                codeOfSpeciality = "09.03.01",
-                headOfPractice = "Петров П.П.",
-                directorName = "Сидоров С.С."
-            )
-            val testGroup = Group(listOf(testStudent))
-            viewModel.addGroup(testGroup)
-        }) {
-            Text("Добавить тестовую группу")
+        // Кнопка генерации документа
+        Button(
+            onClick = {
+                isLoading = true
+                generationResult = null
+                try {
+                    val templateFile = reportFile
+                    if (templateFile != null) {
+                        val success = viewModel.generatePracticeDocument(templateFile)
+                        generationResult = if (success) {
+                            "✅ Документ успешно создан в той же папке!"
+                        } else {
+                            "❌ Ошибка при создании документа"
+                        }
+                    } else {
+                        generationResult = "⚠️ Сначала выберите шаблон документа"
+                    }
+                } catch (e: Exception) {
+                    generationResult = "❌ Исключение: ${e.message}"
+                    e.printStackTrace()
+                } finally {
+                    isLoading = false
+                }
+            },
+            enabled = reportFile != null && !isLoading
+        ) {
+            Text(if (isLoading) "Генерация..." else "Сгенерировать документ")
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Информация о mock студенте
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            horizontalAlignment = Alignment.Start
+        ) {
+            Text("Данные студента для заполнения:",
+                style = androidx.compose.material3.MaterialTheme.typography.titleSmall)
+            Text("ФИО: ${viewModel.getMockStudent().name}")
+            Text("Группа: ${viewModel.getMockStudent().group}")
+            Text("Курс: ${viewModel.getMockStudent().course}")
+            Text("База практики: ${viewModel.getMockStudent().nameOfPracticeBase}")
+            Text("Город: ${viewModel.getMockStudent().cityOfPractice}")
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         // Отображение состояния
-        Column(horizontalAlignment = Alignment.Start) {
-            Text("Состояние приложения:")
-            Text("Файл: ${reportFile?.name ?: "не выбран"}")
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.Start
+        ) {
+            Text("Состояние приложения:",
+                style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
+
+            Text("Шаблон: ${reportFile?.name ?: "не выбран"}")
             reportFile?.let { file ->
                 Text("Путь: ${file.absolutePath}")
-                Text("Размер: ${file.length()} байт")
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Text("Групп: ${groups.size}")
+            generationResult?.let { result ->
+                Text(result,
+                    style = androidx.compose.material3.MaterialTheme.typography.bodyMedium)
+            }
 
-            groups.forEachIndexed { index, group ->
-                Column(modifier = Modifier.padding(vertical = 4.dp)) {
-                    Text("Группа ${index + 1}: ${group.getStudentsCount()} студентов")
-                    group.students.forEach { student ->
-                        Text("  - ${student.name} (${student.gradeForPractice})",
-                            style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
-                    }
-                }
+            if (isLoading) {
+                Text("⏳ Идет генерация документа...")
             }
         }
     }

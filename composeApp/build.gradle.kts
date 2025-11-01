@@ -49,6 +49,8 @@ kotlin {
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutinesSwing)
+            implementation("org.apache.poi:poi:5.2.4")
+            implementation("org.apache.poi:poi-ooxml:5.2.4")
         }
         jvmTest.dependencies {
             implementation(libs.kotlin.test)  // Kotlin test framework

@@ -23,7 +23,8 @@ class Practice (
 class Student(
     val name: String,
 
-    //?
+    val course: Int,
+
     val group: String,
 
     val isForeign:Boolean,
@@ -36,20 +37,25 @@ class Student(
 
     val periodOfPractice: String,
 
-    val formOfPractice: String,
+    val formOfStudy: String,
+
     val withPayment: Boolean,
 
-
-    //?
     val cityOfPractice: String?,
 
-
-    //?
     val nameOfSpeciality: String,
+
     val codeOfSpeciality: String,
-    //?
-    val headOfPractice: String,
-    val directorName: String,
+
+    val headOfPracticeFromDepartment: String,
+
+    val headOfPracticeFromPracticeBase: String,
+
+    val postOfHeadOfPracticeFromPracticeBase: String,
+
+    val postOfHeadOfPracticeFromDepartment: String,
+
+    val directorName: String = "Павлова",
 ) {
     //val result2 = str.filterNot { it in " -" }
 }

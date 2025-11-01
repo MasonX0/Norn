@@ -69,7 +69,7 @@ class NornViewModel {
             val extension = templateFile.extension
             val outputFile = File(
                 templateFile.parent,
-                "${originalName}_заполненный_${mockStudent.name.replace(" ", "_")}.$extension"
+                "${originalName}_заполненный_.$extension"
             )
 
             // Заменяем поля в Word документе
@@ -79,7 +79,7 @@ class NornViewModel {
                 println("✅ Документ создан: ${outputFile.absolutePath}")
                 true
             } else {
-                println("❌ Ошибка при создании документа")
+                println("❌ Ошибка при создании документа, закройте используемые word' файлы!")
                 false
             }
         } catch (e: Exception) {
@@ -144,56 +144,90 @@ class NornViewModel {
                 "{dataIaV}" to "04.04.2025 г.",
                 "{dataIaP}" to "04.04.2025 г.",
                 "{dataOtz}" to "16.05.2025 г.",
-
+                "{codeOfDirection}" to student.codeOfDirection,
+                "{nameOfDirection}" to student.nameOfDirection,
+                "{directorName}" to student.directorName,
             )
 
-            // Удаляем все существующие runs
-            val runsToRemove = paragraph.runs.toList()
-            runsToRemove.forEach { run ->
-                paragraph.removeRun(paragraph.runs.indexOf(run))
+            // Создаем карту: плейсхолдер -> был ли он подчеркнут
+            val placeholderUnderlineMap = mutableMapOf<String, Boolean>()
+
+            // Проверяем каждый плейсхолдер в оригинальном тексте
+            replacements.keys.forEach { placeholder ->
+                if (text.contains(placeholder)) {
+                    val startIndex = text.indexOf(placeholder)
+                    val endIndex = startIndex + placeholder.length
+                    placeholderUnderlineMap[placeholder] = isTextUnderlined(paragraph, startIndex, endIndex)
+                }
+            }
+
+            // Удаляем все существующие runs БЕЗ итерации
+            while (paragraph.runs.isNotEmpty()) {
+                paragraph.removeRun(0)
             }
 
             var remainingText = text
-            val resultRuns = mutableListOf<XWPFRun>()
 
-            // Обрабатываем текст пока есть плейсхолдеры
+            // Обрабатываем текст с плейсхолдерами
             while (remainingText.isNotEmpty()) {
                 val openBraceIndex = remainingText.indexOf("{")
                 val closeBraceIndex = remainingText.indexOf("}")
 
                 if (openBraceIndex != -1 && closeBraceIndex != -1 && openBraceIndex < closeBraceIndex) {
-                    // Есть плейсхолдер
+                    // Текст до плейсхолдера
                     val beforePlaceholder = remainingText.substring(0, openBraceIndex)
-                    val placeholderWithBraces = remainingText.substring(openBraceIndex, closeBraceIndex + 1)
+                    val placeholder = remainingText.substring(openBraceIndex, closeBraceIndex + 1)
                     val afterPlaceholder = remainingText.substring(closeBraceIndex + 1)
 
                     // Добавляем текст до плейсхолдера
                     if (beforePlaceholder.isNotEmpty()) {
-                        val normalRun = paragraph.createRun()
-                        normalRun.setText(beforePlaceholder)
-                        normalRun.setFontSize(12)
-                        normalRun.setFontFamily("Times New Roman")
+                        val run = paragraph.createRun()
+                        run.setText(beforePlaceholder)
+                        run.setFontSize(12)
+                        run.setFontFamily("Times New Roman")
                     }
 
-                    // Добавляем замененное значение (с подчеркиванием)
-                    val value = replacements[placeholderWithBraces] ?: placeholderWithBraces
-                    val underlinedRun = paragraph.createRun()
-                    underlinedRun.setText(value)
-                    underlinedRun.setUnderline(org.apache.poi.xwpf.usermodel.UnderlinePatterns.SINGLE)
-                    underlinedRun.setFontSize(12)
-                    underlinedRun.setFontFamily("Times New Roman")
+                    // Добавляем замененное значение
+                    val value = replacements[placeholder] ?: placeholder
+                    val run = paragraph.createRun()
+                    run.setText(value)
+                    run.setFontSize(12)
+                    run.setFontFamily("Times New Roman")
+
+                    // Подчеркиваем только если оригинальный плейсхолдер был подчеркнут
+                    if (placeholderUnderlineMap[placeholder] == true) {
+                        run.setUnderline(org.apache.poi.xwpf.usermodel.UnderlinePatterns.SINGLE)
+                    }
 
                     remainingText = afterPlaceholder
                 } else {
-                    // Больше плейсхолдеров нет - добавляем оставшийся текст
-                    val finalRun = paragraph.createRun()
-                    finalRun.setText(remainingText)
-                    finalRun.setFontSize(12)
-                    finalRun.setFontFamily("Times New Roman")
+                    // Остаток текста
+                    val run = paragraph.createRun()
+                    run.setText(remainingText)
+                    run.setFontSize(12)
+                    run.setFontFamily("Times New Roman")
                     break
                 }
             }
         }
+    }
+
+    private fun isTextUnderlined(paragraph: XWPFParagraph, startIndex: Int, endIndex: Int): Boolean {
+        var currentPos = 0
+        for (run in paragraph.runs) {
+            val runText = run.getText(0) ?: ""
+            val runStart = currentPos
+            val runEnd = currentPos + runText.length
+
+            // Проверяем, пересекается ли этот run с нужным текстом
+            if (runStart <= endIndex && runEnd >= startIndex) {
+                if (run.getUnderline() != org.apache.poi.xwpf.usermodel.UnderlinePatterns.NONE) {
+                    return true
+                }
+            }
+            currentPos = runEnd
+        }
+        return false
     }
 
     private fun processReportFile(file: File) {
@@ -203,18 +237,6 @@ class NornViewModel {
         println("Расширение: ${file.extension}")
     }
 
-    // Функция для получения информации о mock студенте
-    fun getMockStudentInfo(): String {
-        return """
-            ФИО: ${mockStudent.name}
-            Группа: ${mockStudent.group}
-            Курс: ${mockStudent.course}
-            База практики: ${mockStudent.nameOfPracticeBase}
-            Город: ${mockStudent.cityOfPractice}
-            Период: ${mockStudent.periodOfPractice}
-            Руководитель от кафедры: ${mockStudent.headOfPracticeFromDepartment}
-        """.trimIndent()
-    }
 
     // Функция для получения mock студента
     fun getMockStudent(): Student {

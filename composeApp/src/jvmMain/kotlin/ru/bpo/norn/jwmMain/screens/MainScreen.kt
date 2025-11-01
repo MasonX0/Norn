@@ -66,7 +66,7 @@ fun MainScreen() {
                         generationResult = if (success) {
                             "✅ Документ успешно создан в той же папке!"
                         } else {
-                            "❌ Ошибка при создании документа"
+                            "❌ Ошибка при создании документа, закройте используемые word' файлы!"
                         }
                     } else {
                         generationResult = "⚠️ Сначала выберите шаблон документа"
@@ -85,21 +85,7 @@ fun MainScreen() {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Информация о mock студенте
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            horizontalAlignment = Alignment.Start
-        ) {
-            Text("Данные студента для заполнения:",
-                style = androidx.compose.material3.MaterialTheme.typography.titleSmall)
-            Text("ФИО: ${viewModel.getMockStudent().name}")
-            Text("Группа: ${viewModel.getMockStudent().group}")
-            Text("Курс: ${viewModel.getMockStudent().course}")
-            Text("База практики: ${viewModel.getMockStudent().nameOfPracticeBase}")
-            Text("Город: ${viewModel.getMockStudent().cityOfPractice}")
-        }
 
-        Spacer(modifier = Modifier.height(16.dp))
 
         // Отображение состояния
         Column(

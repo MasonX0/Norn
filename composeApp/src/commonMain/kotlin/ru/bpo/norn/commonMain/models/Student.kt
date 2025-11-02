@@ -62,7 +62,10 @@ class Student(
 
     /** ФИО директора института/декана */
     val directorName: String,
+
+
 ) {
     // Вспомогательный метод для фильтрации символов (закомментирован)
     // val result2 = str.filterNot { it in " -" }
+
 }

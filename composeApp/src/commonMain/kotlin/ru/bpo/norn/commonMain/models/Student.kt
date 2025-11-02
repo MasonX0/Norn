@@ -2,7 +2,7 @@ package ru.bpo.norn.commonMain.models
 
 
 
-class Student(
+data class Student(
     /** Полное ФИО студента */
     val name: String,
 
@@ -62,7 +62,10 @@ class Student(
 
     /** ФИО директора института/декана */
     val directorName: String,
+
+
 ) {
     // Вспомогательный метод для фильтрации символов (закомментирован)
     // val result2 = str.filterNot { it in " -" }
+
 }

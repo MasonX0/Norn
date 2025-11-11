@@ -1,7 +1,6 @@
 package ru.bpo.norn.commonMain.models
 
 
-
 data class Student(
     /** Полное ФИО студента */
     val name: String,
@@ -33,11 +32,14 @@ data class Student(
     /** Период прохождения практики  аля с 07.04.2025 г. по 18.05.2025 г.*/
     val periodOfPractice: String,
 
-    /** Форма обучения (бюджетная/платная) */
+    /** Форма обучения (бюджетная/платная/целевая) */
     val formOfStudy: String,
 
     /** Обучается на платной основе */
     val withPayment: Boolean,
+
+    /** Оплачиваемая ли практика */
+    val isPaidPractice: Boolean = false,
 
     /** Город прохождения практики  */
     val cityOfPractice: String,
@@ -63,9 +65,4 @@ data class Student(
     /** ФИО директора института/декана */
     val directorName: String,
 
-
-) {
-    // Вспомогательный метод для фильтрации символов (закомментирован)
-    // val result2 = str.filterNot { it in " -" }
-
-}
+    )

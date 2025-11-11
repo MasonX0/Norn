@@ -464,18 +464,22 @@ class NornViewModel {
                                     group = group,
                                     isForeign = false,
                                     gradeForPractice = "не установлено",
-                                    nameOfPracticeBase = "не назначено",
-                                    typeOfPractice = "производственная",
-                                    periodOfPractice = "с 07.04.2025 г. по 18.05.2025 г.",
+                                    nameOfPracticeBase = "ФГБОУ ВО УГНТУ каф. ВТИК",
+                                    typeOfPractice = "учебная",
+                                    periodOfPractice = "23.06.2025 -06.07.2025",
                                     formOfStudy = fundingType.ifBlank { "бюджетная" },
-                                    withPayment = false,
+                                    withPayment = fundingType.contains("платн", ignoreCase = true),
+                                    isPaidPractice = fundingType.contains(
+                                        "платн",
+                                        ignoreCase = true
+                                    ), // Обновлено поле isPaidPractice
                                     cityOfPractice = branch.ifBlank { "Уфа" },
                                     nameOfSpeciality = "Технологии искусственного интеллекта",
                                     codeOfSpeciality = "БПО09",
-                                    headOfPracticeFromDepartment = "Иванов И.И.",
+                                    headOfPracticeFromDepartment = "Кондратьев Д.В.",
                                     headOfPracticeFromPracticeBase = "Петров П.П.",
                                     postOfHeadOfPracticeFromPracticeBase = "руководитель",
-                                    postOfHeadOfPracticeFromDepartment = "доцент",
+                                    postOfHeadOfPracticeFromDepartment = "доц.",
                                     directorName = "Сидоров С.С."
                                 )
                             )
@@ -565,6 +569,266 @@ class NornViewModel {
             e.printStackTrace()
             false
         }
+    }
+
+    /**
+     * Генерирует приказ по всем загруженным группам с разделением по форме обучения
+     */
+    fun generateOrderDocument(): Boolean {
+        return try {
+            val outputFile =
+                File(System.getProperty("user.home"), "Desktop/Приказ_по_практике.docx")
+
+            // Получаем всех студентов из всех групп
+            val allStudents = repository.groups.value.flatMap { it.students }
+
+            if (allStudents.isEmpty()) {
+                println("❌ Нет загруженных студентов для создания приказа")
+                return false
+            }
+
+            val success = createOrderDocument(allStudents, outputFile)
+
+            if (success) {
+                println("✅ Приказ создан: ${outputFile.absolutePath}")
+                true
+            } else {
+                println("❌ Ошибка при создании приказа")
+                false
+            }
+        } catch (e: Exception) {
+            println("❌ Исключение при создании приказа: ${e.message}")
+            e.printStackTrace()
+            false
+        }
+    }
+
+    /**
+     * Создает Word документ с приказом, разделенным по формам обучения
+     */
+    private fun createOrderDocument(students: List<Student>, outputFile: File): Boolean {
+        return try {
+            // Группируем студентов по форме обучения с улучшенной логикой
+            val budgetStudents = students.filter {
+                it.formOfStudy.contains("бюджет", ignoreCase = true) ||
+                        (!it.withPayment && !it.formOfStudy.contains("платн", ignoreCase = true) &&
+                                !it.formOfStudy.contains("целев", ignoreCase = true))
+            }.sortedBy { it.name }
+
+            val targetStudents = students.filter {
+                it.formOfStudy.contains("целев", ignoreCase = true)
+            }.sortedBy { it.name }
+
+            val paidStudents = students.filter {
+                it.withPayment || it.formOfStudy.contains("платн", ignoreCase = true)
+            }.sortedBy { it.name }
+
+            // Создаем новый документ
+            XWPFDocument().use { document ->
+                // Заголовок документа
+                addOrderHeader(document)
+
+                var globalIndex = 1
+
+                // Секция для бюджетных студентов
+                if (budgetStudents.isNotEmpty()) {
+                    globalIndex = addStudentsSection(
+                        document,
+                        budgetStudents,
+                        1,
+                        "бюджетной основе",
+                        globalIndex
+                    )
+                }
+
+                // Секция для целевых студентов
+                if (targetStudents.isNotEmpty()) {
+                    globalIndex = addStudentsSection(
+                        document,
+                        targetStudents,
+                        2,
+                        "целевой основе",
+                        globalIndex
+                    )
+                }
+
+                // Секция для платных студентов
+                if (paidStudents.isNotEmpty()) {
+                    addStudentsSection(document, paidStudents, 3, "платной основе", globalIndex)
+                }
+
+                // Подписи
+                addOrderFooter(document)
+
+                // Сохраняем документ
+                FileOutputStream(outputFile).use { fos ->
+                    document.write(fos)
+                }
+            }
+
+            true
+        } catch (e: Exception) {
+            println("❌ Ошибка создания приказа: ${e.message}")
+            e.printStackTrace()
+            false
+        }
+    }
+
+    /**
+     * Добавляет заголовок приказа
+     */
+    private fun addOrderHeader(document: XWPFDocument) {
+        // Заголовок
+        val headerParagraph = document.createParagraph()
+        headerParagraph.alignment = org.apache.poi.xwpf.usermodel.ParagraphAlignment.CENTER
+        val headerRun = headerParagraph.createRun()
+        headerRun.setText("Проект приказа -4п от _________")
+        headerRun.setFontSize(12)
+        headerRun.setFontFamily("Times New Roman")
+        headerRun.isBold = true
+
+        val titleParagraph = document.createParagraph()
+        titleParagraph.alignment = org.apache.poi.xwpf.usermodel.ParagraphAlignment.CENTER
+        val titleRun = titleParagraph.createRun()
+        titleRun.setText("Об учебной практике (ознакомительной практике)")
+        titleRun.setFontSize(12)
+        titleRun.setFontFamily("Times New Roman")
+        titleRun.isBold = true
+
+        val instituteParagraph = document.createParagraph()
+        instituteParagraph.alignment = org.apache.poi.xwpf.usermodel.ParagraphAlignment.CENTER
+        val instituteRun = instituteParagraph.createRun()
+        instituteRun.setText("По институту цифровых систем, автоматизации и энергетики процессов")
+        instituteRun.setFontSize(12)
+        instituteRun.setFontFamily("Times New Roman")
+
+        // Пустая строка
+        document.createParagraph()
+    }
+
+    /**
+     * Добавляет секцию со студентами определенной формы обучения
+     */
+    private fun addStudentsSection(
+        document: XWPFDocument,
+        students: List<Student>,
+        sectionNumber: Int,
+        fundingType: String,
+        startIndex: Int
+    ): Int {
+        // Заголовок секции
+        val sectionParagraph = document.createParagraph()
+        val sectionRun = sectionParagraph.createRun()
+        sectionRun.setText("$sectionNumber Нижеперечисленных студентов потока БПО09-24 и БПО09и-24 направления 09.03.01 Информатика и вычислительная техника, профиля «Технологии искусственного интеллекта в нефтегазовой отрасли», обучающихся на $fundingType, направить для прохождения практики на следующие базы практик:")
+        sectionRun.setFontSize(12)
+        sectionRun.setFontFamily("Times New Roman")
+
+        // Создаем таблицу
+        val table = document.createTable()
+        table.width = 10000
+
+        // Заголовок таблицы
+        val headerRow = table.getRow(0)
+        headerRow.getCell(0).setText("№пп")
+        headerRow.addNewTableCell().setText("Ф. И. О. практиканта\n(в именительном падеже)")
+        headerRow.addNewTableCell().setText("Наименование база практики, населенный пункт")
+        headerRow.addNewTableCell().setText("Вид и тип практики")
+        headerRow.addNewTableCell().setText("Сроки практики")
+        headerRow.addNewTableCell().setText("Форма практики")
+        headerRow.addNewTableCell().setText("с оплатой/ без оплаты")
+        headerRow.addNewTableCell().setText("Руководитель по практике на кафедре")
+
+        // Применяем стиль к заголовку
+        for (cell in headerRow.tableCells) {
+            val paragraph = cell.paragraphs[0]
+            paragraph.alignment = org.apache.poi.xwpf.usermodel.ParagraphAlignment.CENTER
+            val run = paragraph.runs[0]
+            run.setFontSize(11)
+            run.setFontFamily("Times New Roman")
+            run.isBold = true
+        }
+
+        // Добавляем строки со студентами
+        var currentIndex = startIndex
+        students.forEach { student ->
+            val row = table.createRow()
+
+            row.getCell(0).setText(currentIndex.toString())
+            row.getCell(1).setText(student.name)
+            row.getCell(2).setText("${student.nameOfPracticeBase}, ${student.cityOfPractice}")
+            row.getCell(3).setText("${student.typeOfPractice} (тип: ознакомительная, 3 з.е.)")
+            row.getCell(4).setText(student.periodOfPractice)
+            row.getCell(5).setText("стационарная")
+            row.getCell(6).setText(if (student.isPaidPractice) "с оплатой" else "без оплаты")
+            row.getCell(7)
+                .setText("${student.postOfHeadOfPracticeFromDepartment}\n${student.headOfPracticeFromDepartment}")
+
+            // Применяем стиль к строке
+            for (cell in row.tableCells) {
+                val paragraph = cell.paragraphs[0]
+                val run =
+                    if (paragraph.runs.isNotEmpty()) paragraph.runs[0] else paragraph.createRun()
+                run.setFontSize(10)
+                run.setFontFamily("Times New Roman")
+            }
+
+            currentIndex++
+        }
+
+        // Пустая строка после таблицы
+        document.createParagraph()
+
+        return currentIndex
+    }
+
+    /**
+     * Добавляет подписи в конец приказа
+     */
+    private fun addOrderFooter(document: XWPFDocument) {
+        // Основание
+        val basisParagraph = document.createParagraph()
+        val basisRun = basisParagraph.createRun()
+        basisRun.setText("Основание: Представление и.о. зав. кафедрой «Вычислительная техника и инженерная кибернетика» Зарипова Д.М.,\n\tвиза согласования директора института цифровых систем, автоматизации и энергетики процессов Павловой З.Х.")
+        basisRun.setFontSize(12)
+        basisRun.setFontFamily("Times New Roman")
+
+        // Пустые строки
+        document.createParagraph()
+        document.createParagraph()
+
+        // Подписи
+        val signatures = listOf(
+            "Проректор по учебной работе" to "_________  А.И. Могучев",
+            "Начальник учебного отдела" to "_________  Н.В. Заиченко",
+            "Начальник отдела взаимодействия с организациями-партнёрами" to "_________  Р.Р. Даминов",
+            "Зам. начальника юридического отдела" to "_________ Р.Ф. Хуснулина",
+            "Руководитель учебно-производственной практики" to "_________ Э.Р. Читахян",
+            "Директор IT-института" to "_________ З.Х. Павлова"
+        )
+
+        signatures.forEach { (position, signature) ->
+            val signatureParagraph = document.createParagraph()
+            val signatureRun = signatureParagraph.createRun()
+            signatureRun.setText("$position\t\t\t\t\t\t\t\t\t$signature")
+            signatureRun.setFontSize(12)
+            signatureRun.setFontFamily("Times New Roman")
+        }
+
+        // Согласовано
+        val agreeParagraph = document.createParagraph()
+        agreeParagraph.alignment = org.apache.poi.xwpf.usermodel.ParagraphAlignment.LEFT
+        val agreeRun = agreeParagraph.createRun()
+        agreeRun.setText("СОГЛАСОВАНО")
+        agreeRun.setFontSize(12)
+        agreeRun.setFontFamily("Times New Roman")
+        agreeRun.isBold = true
+
+        // Проект вносит
+        val proposerParagraph = document.createParagraph()
+        val proposerRun = proposerParagraph.createRun()
+        proposerRun.setText("Проект вносит:\nИ.о. зав. кафедрой ВТИК\t\t\t\t\t\t\t\t\t_________ Д.М. Зарипов")
+        proposerRun.setFontSize(12)
+        proposerRun.setFontFamily("Times New Roman")
     }
 
     /**

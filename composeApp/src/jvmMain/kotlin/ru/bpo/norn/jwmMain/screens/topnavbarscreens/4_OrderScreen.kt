@@ -15,18 +15,134 @@ import javax.swing.filechooser.FileNameExtensionFilter
 @Composable
 fun OrderScreen(viewModel: NornViewModel) {
     val orderFile by viewModel.orderFile.collectAsState()
+    val groups by viewModel.groups.collectAsState()
     var generationResult by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
+
+    // Получаем всех студентов из всех групп
+    val allStudents = groups.flatMap { it.students }
+    
+    // Группируем студентов по типам финансирования
+    val budgetStudents = allStudents.filter {
+        it.formOfStudy.contains("бюджет", ignoreCase = true) ||
+                (!it.withPayment && !it.formOfStudy.contains("платн", ignoreCase = true) && 
+                 !it.formOfStudy.contains("целев", ignoreCase = true))
+    }
+    
+    val targetStudents = allStudents.filter {
+        it.formOfStudy.contains("целев", ignoreCase = true)
+    }
+    
+    val paidStudents = allStudents.filter {
+        it.withPayment || it.formOfStudy.contains("платн", ignoreCase = true)
+    }
 
     Column(
         modifier = Modifier.fillMaxSize().padding(15.dp),
         verticalArrangement = Arrangement.spacedBy(15.dp)
     ) {
         Text(
-            "Загрузите шаблон, чтобы получить приказ",
+            "Генерация приказа по практике",
+            color = MaterialTheme.colorScheme.onSurface,
+            style = MaterialTheme.typography.headlineSmall
+        )
+
+        // Статистика студентов
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    "Статистика загруженных студентов:",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("📊 Всего студентов:")
+                    Text("${allStudents.size}", style = MaterialTheme.typography.titleMedium)
+                }
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("💰 Бюджетная основа:")
+                    Text("${budgetStudents.size}", color = MaterialTheme.colorScheme.primary)
+                }
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("🎯 Целевая основа:")
+                    Text("${targetStudents.size}", color = MaterialTheme.colorScheme.secondary)
+                }
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("💳 Платная основа:")
+                    Text("${paidStudents.size}", color = MaterialTheme.colorScheme.tertiary)
+                }
+                
+                if (allStudents.isEmpty()) {
+                    Text(
+                        "⚠️ Нет загруженных студентов. Загрузите списки студентов в разделе 'Студенты'",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        }
+
+        // Кнопка генерации приказа (без шаблона)
+        Button(
+            onClick = {
+                isLoading = true
+                generationResult = null
+                try {
+                    val success = viewModel.generateOrderDocument()
+                    generationResult = if (success) {
+                        "✅ Приказ успешно создан на рабочем столе!"
+                    } else {
+                        "❌ Ошибка при создании приказа. Проверьте, что загружены студенты."
+                    }
+                } catch (e: Exception) {
+                    generationResult = "❌ Исключение: ${e.message}"
+                    e.printStackTrace()
+                } finally {
+                    isLoading = false
+                }
+            },
+            enabled = allStudents.isNotEmpty() && !isLoading,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            )
+        ) {
+            Text(if (isLoading) "Генерация приказа..." else "Сгенерировать приказ")
+        }
+
+        // Разделитель
+        HorizontalDivider()
+
+        Text(
+            "Или загрузите свой шаблон приказа:",
             color = MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.bodyLarge
         )
+
         // Кнопка выбора шаблона
         Button(onClick = {
             val fileChooser = JFileChooser().apply {
@@ -41,16 +157,16 @@ fun OrderScreen(viewModel: NornViewModel) {
                 viewModel.selectOrderFile(fileChooser.selectedFile)
             }
         },colors = ButtonColors(
-            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-            disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-            disabledContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+            containerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.4f),
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            disabledContainerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.4f),
+            disabledContentColor = MaterialTheme.colorScheme.onSecondaryContainer
         ), border = BorderStroke(1.dp,MaterialTheme.colorScheme.outline)
         ) {
-            Text("Выбрать шаблон Word документа\n(приказа)")
+            Text("Выбрать шаблон Word документа")
         }
 
-        // Кнопка генерации документа
+        // Кнопка генерации документа по шаблону
         Button(
             onClick = {
                 isLoading = true
@@ -62,7 +178,7 @@ fun OrderScreen(viewModel: NornViewModel) {
                         generationResult = if (success) {
                             "✅ Документ успешно создан в той же папке!"
                         } else {
-                            "❌ Ошибка при создании документа, закройте используемые word' файлы!"
+                            "❌ Ошибка при создании документа, закройте используемые word файлы!"
                         }
                     } else {
                         generationResult = "⚠️ Сначала выберите шаблон документа"
@@ -74,32 +190,34 @@ fun OrderScreen(viewModel: NornViewModel) {
                     isLoading = false
                 }
             },
-            enabled = orderFile != null && !isLoading
+            enabled = orderFile != null && !isLoading,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.secondary,
+                contentColor = MaterialTheme.colorScheme.onSecondary
+            )
         ) {
-            Text(if (isLoading) "Генерация..." else "Сгенерировать документ")
+            Text(if (isLoading) "Генерация..." else "Сгенерировать по шаблону")
         }
-
-
-
 
         // Отображение состояния
         Column(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.Start
         ) {
-            Text("Состояние приложения:",
-                style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
+            Text("Состояние:",
+                style = MaterialTheme.typography.titleMedium)
 
             Text("Шаблон: ${orderFile?.name ?: "не выбран"}")
             orderFile?.let { file ->
-                Text("Путь: ${file.absolutePath}")
+                Text("Путь: ${file.absolutePath}", 
+                     style = MaterialTheme.typography.bodySmall)
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             generationResult?.let { result ->
                 Text(result,
-                    style = androidx.compose.material3.MaterialTheme.typography.bodyMedium)
+                    style = MaterialTheme.typography.bodyMedium)
             }
 
             if (isLoading) {

@@ -6,6 +6,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import ru.bpo.norn.jwmMain.screens.topnavbarscreens.DestinationScreen
+import ru.bpo.norn.jwmMain.screens.topnavbarscreens.InfoScreen
 import ru.bpo.norn.jwmMain.viewmodel.NornViewModel
 import viewmodel.Screen
 @Composable

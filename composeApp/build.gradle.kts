@@ -49,6 +49,21 @@ kotlin {
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutinesSwing)
+            implementation("org.apache.poi:poi:5.2.4")
+            implementation("org.apache.poi:poi-ooxml:5.2.4")
+
+            // Apache POI для Excel
+            implementation("org.apache.poi:poi:5.2.4")
+            implementation("org.apache.poi:poi-ooxml:5.2.4")
+            implementation("org.apache.poi:poi-scratchpad:5.2.4")
+
+            // Для старых форматов Excel
+            implementation("org.apache.poi:poi-ooxml-full:5.2.4")
+
+            // Зависимости для XML обработки
+            implementation("org.apache.xmlbeans:xmlbeans:5.1.1")
+            implementation("org.apache.commons:commons-compress:1.23.0")
+            implementation("commons-io:commons-io:2.11.0")
         }
         jvmTest.dependencies {
             implementation(libs.kotlin.test)  // Kotlin test framework
@@ -59,11 +74,11 @@ kotlin {
 }
 
 android {
-    namespace = "ru.bpo.norn"
+    namespace = "Norn"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "ru.bpo.norn"
+        applicationId = "Norn"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
@@ -95,7 +110,7 @@ compose.desktop {
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            packageName = "ru.bpo.norn"
+            packageName = "Norn"
             packageVersion = "1.0.0"
         }
     }

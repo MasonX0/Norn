@@ -200,8 +200,8 @@ private fun GroupEditDialog(
     var headOfPracticeFromPracticeBase by remember { mutableStateOf("") }
     var postOfHeadOfPracticeFromPracticeBase by remember { mutableStateOf("") }
     var directorName by remember { mutableStateOf("") }
-    var codeOfDirection by remember { mutableStateOf("") }
-    var nameOfDirection by remember { mutableStateOf("") }
+    var codeOfDirection by remember { mutableStateOf(currentGroup.codeOfDirection) }
+    var nameOfDirection by remember { mutableStateOf(currentGroup.nameOfDirection) }
     var nameOfSpeciality by remember { mutableStateOf("") }
     var codeOfSpeciality by remember { mutableStateOf("") }
     var formOfStudy by remember { mutableStateOf("") }
@@ -219,8 +219,8 @@ private fun GroupEditDialog(
     var isHeadOfPracticeFromPracticeBaseSet by remember { mutableStateOf(false) }
     var isPostOfHeadOfPracticeFromPracticeBaseSet by remember { mutableStateOf(false) }
     var isDirectorNameSet by remember { mutableStateOf(false) }
-    var isCodeOfDirectionSet by remember { mutableStateOf(false) }
-    var isNameOfDirectionSet by remember { mutableStateOf(false) }
+    var isCodeOfDirectionSet by remember { mutableStateOf(true) }
+    var isNameOfDirectionSet by remember { mutableStateOf(true) }
     var isNameOfSpecialitySet by remember { mutableStateOf(false) }
     var isCodeOfSpecialitySet by remember { mutableStateOf(false) }
     var isFormOfStudySet by remember { mutableStateOf(false) }
@@ -396,8 +396,18 @@ private fun StudentEditDialog(
     var headOfPracticeFromPracticeBase by remember { mutableStateOf(student?.headOfPracticeFromPracticeBase ?: "") }
     var postOfHeadOfPracticeFromPracticeBase by remember { mutableStateOf(student?.postOfHeadOfPracticeFromPracticeBase ?: "") }
     var directorName by remember { mutableStateOf(student?.directorName ?: "") }
-    var codeOfDirection by remember { mutableStateOf(student?.codeOfDirection ?: "") }
-    var nameOfDirection by remember { mutableStateOf(student?.nameOfDirection ?: "") }
+    // Получаем данные о направлении из выбранной группы через viewModel
+    val selectedGroup by viewModel.selectedGroup.collectAsState()
+    var codeOfDirection by remember {
+        mutableStateOf(
+            selectedGroup?.codeOfDirection ?: student?.codeOfDirection ?: ""
+        )
+    }
+    var nameOfDirection by remember {
+        mutableStateOf(
+            selectedGroup?.nameOfDirection ?: student?.nameOfDirection ?: ""
+        )
+    }
     var nameOfSpeciality by remember { mutableStateOf(student?.nameOfSpeciality ?: "") }
     var codeOfSpeciality by remember { mutableStateOf(student?.codeOfSpeciality ?: "") }
     var formOfStudy by remember { mutableStateOf(student?.formOfStudy ?: "") }
@@ -561,6 +571,14 @@ private fun EditFormContent(
     // Состояние для выбранного руководителя
     var selectedSupervisor by remember { mutableStateOf<PracticeSupervisor?>(null) }
 
+    // Состояния для выпадающих списков
+    var formOfStudyExpanded by remember { mutableStateOf(false) }
+    var practicePaymentExpanded by remember { mutableStateOf(false) }
+
+    // Варианты для выпадающих списков
+    val formOfStudyOptions = listOf("Бюджет", "Платное", "Целевое")
+    val practicePaymentOptions = listOf("Оплачиваемая", "Неоплачиваемая")
+
     @Composable
     fun fieldColors(value: String): TextFieldColors {
         return if (value.isNotEmpty()) {
@@ -656,6 +674,41 @@ private fun EditFormContent(
                     colors = fieldColors(gradeForPractice)
                 )
             }
+
+            // Выпадающий список для оплаты практики
+            Text("Оплата практики:", style = MaterialTheme.typography.bodySmall)
+            Box(modifier = Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    modifier = Modifier.fillMaxWidth(),
+                    readOnly = true,
+                    value = if (withPayment) "Оплачиваемая" else "Неоплачиваемая",
+                    onValueChange = {},
+                    label = { Text("Оплата практики") },
+                    trailingIcon = {
+                        TextButton(onClick = {
+                            practicePaymentExpanded = !practicePaymentExpanded
+                        }) {
+                            Text(if (practicePaymentExpanded) "▲" else "▼")
+                        }
+                    },
+                    colors = if (withPayment) fieldColors("оплачиваемая") else OutlinedTextFieldDefaults.colors()
+                )
+                DropdownMenu(
+                    expanded = practicePaymentExpanded,
+                    onDismissRequest = { practicePaymentExpanded = false },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    practicePaymentOptions.forEach { option ->
+                        DropdownMenuItem(
+                            text = { Text(option) },
+                            onClick = {
+                                onWithPaymentChange(option == "Оплачиваемая")
+                                practicePaymentExpanded = false
+                            }
+                        )
+                    }
+                }
+            }
         }
         item {
             Text("Руководители:", style = MaterialTheme.typography.titleSmall)
@@ -713,22 +766,41 @@ private fun EditFormContent(
                 modifier = Modifier.fillMaxWidth(),
                 colors = fieldColors(directorName)
             )
-            OutlinedTextField(
-                value = formOfStudy,
-                onValueChange = onFormOfStudyChange,
-                label = { Text("Форма обучения") },
-                modifier = Modifier.fillMaxWidth(),
-                colors = fieldColors(formOfStudy)
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = isForeign, onCheckedChange = onIsForeignChange)
-                    Text("Иностранный студент")
+
+            Box(modifier = Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    modifier = Modifier.fillMaxWidth(),
+                    readOnly = true,
+                    value = formOfStudy.ifEmpty { "Не выбрано" },
+                    onValueChange = {},
+                    label = { Text("Форма обучения") },
+                    trailingIcon = {
+                        TextButton(onClick = { formOfStudyExpanded = !formOfStudyExpanded }) {
+                            Text(if (formOfStudyExpanded) "▲" else "▼")
+                        }
+                    },
+                    colors = fieldColors(formOfStudy)
+                )
+                DropdownMenu(
+                    expanded = formOfStudyExpanded,
+                    onDismissRequest = { formOfStudyExpanded = false },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    formOfStudyOptions.forEach { option ->
+                        DropdownMenuItem(
+                            text = { Text(option) },
+                            onClick = {
+                                onFormOfStudyChange(option)
+                                formOfStudyExpanded = false
+                            }
+                        )
+                    }
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = withPayment, onCheckedChange = onWithPaymentChange)
-                    Text("Платное обучение")
-                }
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(checked = isForeign, onCheckedChange = onIsForeignChange)
+                Text("Иностранный студент")
             }
         }
     }

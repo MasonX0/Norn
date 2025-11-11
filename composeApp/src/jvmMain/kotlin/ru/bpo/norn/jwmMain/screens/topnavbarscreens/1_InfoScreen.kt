@@ -11,6 +11,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import ru.bpo.norn.commonMain.models.Group
 import ru.bpo.norn.commonMain.models.Student
+import ru.bpo.norn.commonMain.models.Enterprise
+import ru.bpo.norn.commonMain.models.PracticeSupervisor
 import ru.bpo.norn.jwmMain.viewmodel.NornViewModel
 
 @Composable
@@ -183,12 +185,12 @@ fun InfoScreen(viewModel: NornViewModel) {
 
 @Composable
 private fun GroupEditDialog(
-    enterprisesList: List<String>,
+    enterprisesList: List<Enterprise>,
     viewModel: NornViewModel,
     currentGroup: Group,
     onDismiss: () -> Unit
 ) {
-    var selectedEnterprise by remember { mutableStateOf("") }
+    var selectedEnterprise by remember { mutableStateOf<Enterprise?>(null) }
     var nameOfPracticeBase by remember { mutableStateOf("") }
     var typeOfPractice by remember { mutableStateOf("") }
     var periodOfPractice by remember { mutableStateOf("") }
@@ -237,10 +239,9 @@ private fun GroupEditDialog(
                 selectedEnterprise = selectedEnterprise,
                 onEnterpriseSelected = { enterprise ->
                     selectedEnterprise = enterprise
-                    nameOfPracticeBase = enterprise
+                    nameOfPracticeBase = enterprise.name
                     isNameOfPracticeBaseSet = true
-                    val city = viewModel.extractCityFromEnterpriseSmart(enterprise)
-                    cityOfPractice = city ?: ""
+                    cityOfPractice = enterprise.city ?: ""
                     isCityOfPracticeSet = true
                 },
                 nameOfPracticeBase = nameOfPracticeBase,
@@ -377,7 +378,7 @@ private fun GroupEditDialog(
 @Composable
 private fun StudentEditDialog(
     student: Student?,
-    enterprisesList: List<String>,
+    enterprisesList: List<Enterprise>,
     viewModel: NornViewModel,
     onDismiss: () -> Unit,
     onSave: (Student) -> Unit
@@ -385,7 +386,7 @@ private fun StudentEditDialog(
     var name by remember { mutableStateOf(student?.name ?: "") }
     var course by remember { mutableStateOf(student?.course?.toString() ?: "") }
     var group by remember { mutableStateOf(student?.group ?: "") }
-    var selectedEnterprise by remember { mutableStateOf("") }
+    var selectedEnterprise by remember { mutableStateOf<Enterprise?>(null) }
     var nameOfPracticeBase by remember { mutableStateOf(student?.nameOfPracticeBase ?: "") }
     var typeOfPractice by remember { mutableStateOf(student?.typeOfPractice ?: "") }
     var periodOfPractice by remember { mutableStateOf(student?.periodOfPractice ?: "") }
@@ -433,9 +434,8 @@ private fun StudentEditDialog(
                     selectedEnterprise = selectedEnterprise,
                     onEnterpriseSelected = { enterprise ->
                         selectedEnterprise = enterprise
-                        nameOfPracticeBase = enterprise
-                        val city = viewModel.extractCityFromEnterpriseSmart(enterprise)
-                        cityOfPractice = city ?: ""
+                        nameOfPracticeBase = enterprise.name
+                        cityOfPractice = enterprise.city ?: ""
                     },
                     nameOfPracticeBase = nameOfPracticeBase,
                     onNameOfPracticeBaseChange = { nameOfPracticeBase = it },
@@ -519,8 +519,8 @@ private fun StudentEditDialog(
 
 @Composable
 private fun EditFormContent(
-    selectedEnterprise: String,
-    onEnterpriseSelected: (String) -> Unit,
+    selectedEnterprise: Enterprise?,
+    onEnterpriseSelected: (Enterprise) -> Unit,
     nameOfPracticeBase: String,
     onNameOfPracticeBaseChange: (String) -> Unit,
     typeOfPractice: String,
@@ -555,9 +555,12 @@ private fun EditFormContent(
     onWithPaymentChange: (Boolean) -> Unit,
     gradeForPractice: String,
     onGradeForPracticeChange: (String) -> Unit,
-    enterprisesList: List<String>,
+    enterprisesList: List<Enterprise>,
     isStudentDialog: Boolean
 ) {
+    // Состояние для выбранного руководителя
+    var selectedSupervisor by remember { mutableStateOf<PracticeSupervisor?>(null) }
+
     @Composable
     fun fieldColors(value: String): TextFieldColors {
         return if (value.isNotEmpty()) {
@@ -588,6 +591,19 @@ private fun EditFormContent(
                 modifier = Modifier.fillMaxWidth(),
                 colors = fieldColors(nameOfPracticeBase)
             )
+            
+            // Выпадающий список руководителей практики
+            if (selectedEnterprise != null && selectedEnterprise.supervisors.isNotEmpty()) {
+                SupervisorDropdown(
+                    supervisors = selectedEnterprise.supervisors,
+                    selectedSupervisor = selectedSupervisor,
+                    onSupervisorSelected = { supervisor ->
+                        selectedSupervisor = supervisor
+                        onHeadOfPracticeFromPracticeBaseChange(supervisor.fullName)
+                        onPostOfHeadOfPracticeFromPracticeBaseChange(supervisor.position)
+                    }
+                )
+            }
         }
         item {
             Text("Направление подготовки:", style = MaterialTheme.typography.titleSmall)
@@ -717,11 +733,12 @@ private fun EditFormContent(
         }
     }
 }
+
 @Composable
 private fun EnterpriseDropdown(
-    enterprisesList: List<String>,
-    selectedEnterprise: String,
-    onEnterpriseSelected: (String) -> Unit
+    enterprisesList: List<Enterprise>,
+    selectedEnterprise: Enterprise?,
+    onEnterpriseSelected: (Enterprise) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
     Column {
@@ -732,14 +749,13 @@ private fun EnterpriseDropdown(
         )
         Spacer(modifier = Modifier.height(4.dp))
 
-        // Просто оборачиваем в Row с весом
         Row(modifier = Modifier.fillMaxWidth()) {
             Spacer(modifier = Modifier.weight(1f))
             Box(modifier = Modifier.fillMaxWidth(0.7f)) {
                 OutlinedTextField(
                     modifier = Modifier.fillMaxWidth(),
                     readOnly = true,
-                    value = selectedEnterprise.ifEmpty { "Не выбрано" },
+                    value = selectedEnterprise?.getDisplayName() ?: "Не выбрано",
                     onValueChange = {},
                     label = { Text("Предприятие") },
                     trailingIcon = {
@@ -753,18 +769,90 @@ private fun EnterpriseDropdown(
                     onDismissRequest = { expanded = false },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    DropdownMenuItem(
-                        text = { Text("Не выбрано") },
-                        onClick = {
-                            onEnterpriseSelected("")
-                            expanded = false
-                        }
-                    )
                     enterprisesList.forEach { enterprise ->
                         DropdownMenuItem(
-                            text = { Text(enterprise, maxLines = 2) },
+                            text = { 
+                                Column {
+                                    Text(enterprise.name, maxLines = 2)
+                                    if (enterprise.city != null) {
+                                        Text(
+                                            enterprise.city,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    if (enterprise.supervisors.isNotEmpty()) {
+                                        Text(
+                                            "${enterprise.supervisors.size} руководителей",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+                            },
                             onClick = {
                                 onEnterpriseSelected(enterprise)
+                                expanded = false
+                            }
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun SupervisorDropdown(
+    supervisors: List<PracticeSupervisor>,
+    selectedSupervisor: PracticeSupervisor?,
+    onSupervisorSelected: (PracticeSupervisor) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    
+    Column {
+        Text(
+            "Выберите руководителя практики:",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Row(modifier = Modifier.fillMaxWidth()) {
+            Spacer(modifier = Modifier.weight(1f))
+            Box(modifier = Modifier.fillMaxWidth(0.7f)) {
+                OutlinedTextField(
+                    modifier = Modifier.fillMaxWidth(),
+                    readOnly = true,
+                    value = selectedSupervisor?.getDisplayText() ?: "Не выбрано",
+                    onValueChange = {},
+                    label = { Text("Руководитель от базы") },
+                    trailingIcon = {
+                        TextButton(onClick = { expanded = !expanded }) {
+                            Text(if (expanded) "▲" else "▼")
+                        }
+                    }
+                )
+                DropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    supervisors.forEach { supervisor ->
+                        DropdownMenuItem(
+                            text = { 
+                                Column {
+                                    Text(supervisor.fullName)
+                                    Text(
+                                        supervisor.position,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            },
+                            onClick = {
+                                onSupervisorSelected(supervisor)
                                 expanded = false
                             }
                         )

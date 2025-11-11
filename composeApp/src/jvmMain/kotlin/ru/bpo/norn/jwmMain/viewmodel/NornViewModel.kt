@@ -9,6 +9,8 @@ import org.apache.poi.xwpf.usermodel.XWPFParagraph
 import ru.bpo.norn.commonMain.data.coursework.mock.mockData.mockStudent1
 import ru.bpo.norn.commonMain.models.Group
 import ru.bpo.norn.commonMain.models.Student
+import ru.bpo.norn.commonMain.models.Enterprise
+import ru.bpo.norn.commonMain.models.PracticeSupervisor
 import ru.bpo.norn.commonMain.repository.NornRepository
 import viewmodel.Screen
 import java.io.File
@@ -99,11 +101,14 @@ class NornViewModel {
     private val _enterprisesFile = MutableStateFlow<File?>(null)
     val enterprisesFile: StateFlow<File?> = _enterprisesFile.asStateFlow()
 
-    private val _enterprisesList = MutableStateFlow<List<String>>(emptyList())
-    val enterprisesList: StateFlow<List<String>> = _enterprisesList.asStateFlow()
+    private val _enterprisesList = MutableStateFlow<List<Enterprise>>(emptyList())
+    val enterprisesList: StateFlow<List<Enterprise>> = _enterprisesList.asStateFlow()
 
-    private val _selectedEnterprise = MutableStateFlow<Pair<String, String?>?>(null)
-    val selectedEnterprise: StateFlow<Pair<String, String?>?> = _selectedEnterprise.asStateFlow()
+    private val _selectedEnterprise = MutableStateFlow<Enterprise?>(null)
+    val selectedEnterprise: StateFlow<Enterprise?> = _selectedEnterprise.asStateFlow()
+
+    private val _selectedSupervisor = MutableStateFlow<PracticeSupervisor?>(null)
+    val selectedSupervisor: StateFlow<PracticeSupervisor?> = _selectedSupervisor.asStateFlow()
 
     private val _showEditDialog = MutableStateFlow(false)
     val showEditDialog: StateFlow<Boolean> = _showEditDialog.asStateFlow()
@@ -113,13 +118,15 @@ class NornViewModel {
     }
 
     /**
-     * Читает список предприятий из TXT файла с правильной кодировкой
+     * Читает список предприятий из TXT файла с новым форматом
+     * Формат: ООО Газпром Межрегионгаз Уфа, г. Уфа // ст. преподаватель ! М.А. Салихова, доц. ! А.И.Сидоров
      */
-    fun readEnterprisesFromTxt(file: File): List<String> {
+    fun readEnterprisesFromTxt(file: File): List<Enterprise> {
         return try {
             file.readLines(Charset.forName("Windows-1251"))
                 .map { it.trim() }
                 .filter { it.isNotBlank() }
+                .mapNotNull { line -> parseEnterpriseLine(line) }
                 .toList()
                 .also { list ->
                     _enterprisesList.value = list
@@ -131,14 +138,51 @@ class NornViewModel {
     }
 
     /**
-     * Извлекает город из названия предприятия
+     * Парсит строку с предприятием в новом формате
+     * Формат: ООО Газпром Межрегионгаз Уфа, г. Уфа // ст. преподаватель ! М.А. Салихова, доц. ! А.И.Сидоров
      */
-    fun extractCityFromEnterpriseSmart(enterpriseName: String): String? {
-        val cleanName = enterpriseName.trim()
+    private fun parseEnterpriseLine(line: String): Enterprise? {
+        return try {
+            // Разделяем по "//" для отделения предприятия от руководителей
+            val parts = line.split("//").map { it.trim() }
+            
+            if (parts.isEmpty()) return null
+            
+            val enterprisePart = parts[0]
+            val supervisorsPart = if (parts.size > 1) parts[1] else ""
+            
+            // Парсим предприятие и город
+            val (name, city) = parseEnterpriseNameAndCity(enterprisePart)
+            
+            // Парсим руководителей
+            val supervisors = if (supervisorsPart.isNotEmpty()) {
+                parseSupervisors(supervisorsPart)
+            } else {
+                emptyList()
+            }
+            
+            Enterprise(
+                name = name,
+                city = city,
+                supervisors = supervisors
+            )
+        } catch (e: Exception) {
+            println("❌ Ошибка парсинга строки '$line': ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * Парсит название предприятия и город
+     */
+    private fun parseEnterpriseNameAndCity(enterprisePart: String): Pair<String, String?> {
+        val cleanName = enterprisePart.trim()
+        
         if (cleanName.contains(",")) {
             val parts = cleanName.split(",")
-            val lastPart = parts.last().trim()
-            val city = lastPart
+            val name = parts.dropLast(1).joinToString(",").trim()
+            val cityPart = parts.last().trim()
+            val city = cityPart
                 .removePrefix("г.")
                 .removePrefix("г")
                 .removePrefix("с.")
@@ -146,39 +190,57 @@ class NornViewModel {
                 .removePrefix("д.")
                 .removePrefix("д")
                 .trim()
-            if (city.isNotBlank() && city.split("\\s+".toRegex()).size <= 3) {
-                return city
-            }
+            
+            return name to if (city.isNotBlank()) city else null
         }
-        return null
+        
+        return cleanName to null
+    }
+
+    /**
+     * Парсит руководителей из строки
+     * Формат: ст. преподаватель ! М.А. Салихова, доц. ! А.И.Сидоров
+     */
+    private fun parseSupervisors(supervisorsPart: String): List<PracticeSupervisor> {
+        return supervisorsPart.split(",")
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .mapNotNull { supervisorStr ->
+                // Разделяем по "!" для отделения должности от ФИО
+                val supervisorParts = supervisorStr.split("!").map { it.trim() }
+                if (supervisorParts.size >= 2) {
+                    val position = supervisorParts[0].trim()
+                    val fullName = supervisorParts[1].trim()
+                    if (position.isNotEmpty() && fullName.isNotEmpty()) {
+                        PracticeSupervisor(fullName = fullName, position = position)
+                    } else null
+                } else null
+            }
+    }
+
+    /**
+     * Извлекает город из названия предприятия (для обратной совместимости)
+     */
+    fun extractCityFromEnterpriseSmart(enterpriseName: String): String? {
+        val (_, city) = parseEnterpriseNameAndCity(enterpriseName)
+        return city
     }
 
     fun clearEnterprisesList() {
         _enterprisesList.value = emptyList()
     }
 
-    fun selectEnterpriseForEditing(enterprise: String) {
-        val currentCity = extractCityFromEnterpriseSmart(enterprise)
-        _selectedEnterprise.value = enterprise to currentCity
+    fun selectEnterpriseForEditing(enterprise: Enterprise) {
+        _selectedEnterprise.value = enterprise
         _showEditDialog.value = true
     }
 
     fun updateEnterpriseCity(newCity: String) {
         val current = _selectedEnterprise.value
         if (current != null) {
-            val (enterprise, _) = current
+            val updatedEnterprise = current.copy(city = newCity.takeIf { it.isNotBlank() })
             val updatedList = _enterprisesList.value.map { item ->
-                if (item == enterprise) {
-                    if (item.contains(",")) {
-                        val parts = item.split(",")
-                        val baseName = parts.dropLast(1).joinToString(",")
-                        "$baseName, $newCity"
-                    } else {
-                        "$item, $newCity"
-                    }
-                } else {
-                    item
-                }
+                if (item.name == current.name) updatedEnterprise else item
             }
             _enterprisesList.value = updatedList
             _showEditDialog.value = false
@@ -189,6 +251,31 @@ class NornViewModel {
     fun closeEditDialog() {
         _showEditDialog.value = false
         _selectedEnterprise.value = null
+    }
+
+    fun updateEnterpriseData(updatedEnterprise: Enterprise) {
+        val currentList = _enterprisesList.value
+        val updatedList = currentList.map { enterprise ->
+            if (enterprise.name == updatedEnterprise.name) {
+                updatedEnterprise
+            } else {
+                enterprise
+            }
+        }
+        _enterprisesList.value = updatedList
+        _showEditDialog.value = false
+        _selectedEnterprise.value = null
+        println("✅ Данные предприятия обновлены: ${updatedEnterprise.name}")
+    }
+
+    fun selectEnterpriseForDisplay(enterprise: Enterprise) {
+        _selectedEnterprise.value = enterprise
+        // Сбрасываем выбранного руководителя при смене предприятия
+        _selectedSupervisor.value = null
+    }
+
+    fun selectSupervisor(supervisor: PracticeSupervisor) {
+        _selectedSupervisor.value = supervisor
     }
 
     // 3.6 StudentsList файлы

@@ -114,7 +114,7 @@ fun InfoScreen(viewModel: NornViewModel) {
                         thickness = 1.dp,
                         modifier = Modifier.padding(bottom = 10.dp)
                     )
-                    LazyColumn(modifier = Modifier.height(400.dp)) {
+                    LazyColumn(modifier = Modifier.height(300.dp)) {
                         items(group.students) { student ->
                             Card(
                                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
@@ -615,7 +615,7 @@ private fun EditFormContent(
     }
 
     LazyColumn(
-        modifier = if (isStudentDialog) Modifier.height(400.dp) else Modifier.height(500.dp),
+        modifier = if (isStudentDialog) Modifier.height(350.dp) else Modifier.height(400.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         item {
@@ -698,14 +698,18 @@ private fun EditFormContent(
                 )
             }
 
-            // Выпадающий список для оплаты практики
+            // Выпадающий список для оплаты практики с возможностью ввода
             Text("Оплата практики:", style = MaterialTheme.typography.bodySmall)
+            var practicePaymentText by remember { mutableStateOf(if (isPaidPractice) "Оплачиваемая" else "Неоплачиваемая") }
+            
             Box(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
                     modifier = Modifier.fillMaxWidth(),
-                    readOnly = true,
-                    value = if (isPaidPractice) "Оплачиваемая" else "Неоплачиваемая",
-                    onValueChange = {},
+                    value = practicePaymentText,
+                    onValueChange = { 
+                        practicePaymentText = it
+                        onIsPaidPracticeChange(it.contains("оплач", ignoreCase = true) || it.contains("платн", ignoreCase = true))
+                    },
                     label = { Text("Оплата практики") },
                     trailingIcon = {
                         TextButton(onClick = {
@@ -725,6 +729,7 @@ private fun EditFormContent(
                         DropdownMenuItem(
                             text = { Text(option) },
                             onClick = {
+                                practicePaymentText = option
                                 onIsPaidPracticeChange(option == "Оплачиваемая")
                                 practicePaymentExpanded = false
                             }
@@ -793,9 +798,8 @@ private fun EditFormContent(
             Box(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
                     modifier = Modifier.fillMaxWidth(),
-                    readOnly = true,
-                    value = practiceForm.ifEmpty { "Не выбрано" },
-                    onValueChange = {},
+                    value = practiceForm,
+                    onValueChange = onPracticeFormChange,
                     label = { Text("Форма практики") },
                     trailingIcon = {
                         TextButton(onClick = { practiceFormExpanded = !practiceFormExpanded }) {
@@ -823,9 +827,8 @@ private fun EditFormContent(
             Box(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
                     modifier = Modifier.fillMaxWidth(),
-                    readOnly = true,
-                    value = formOfStudy.ifEmpty { "Не выбрано" },
-                    onValueChange = {},
+                    value = formOfStudy,
+                    onValueChange = onFormOfStudyChange,
                     label = { Text("Форма обучения") },
                     trailingIcon = {
                         TextButton(onClick = { formOfStudyExpanded = !formOfStudyExpanded }) {

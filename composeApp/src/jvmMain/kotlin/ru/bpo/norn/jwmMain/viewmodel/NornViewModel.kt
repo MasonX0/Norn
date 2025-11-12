@@ -939,7 +939,7 @@ class NornViewModel {
                 currentIndex.toString(),
                 student.name,
                 "${student.nameOfPracticeBase}, ${student.cityOfPractice}",
-                "${student.typeOfPractice} (тип: ознакомительная, 3 з.е.)",
+                student.typeOfPractice,
                 student.periodOfPractice,
                 student.practiceForm,
                 if (student.isPaidPractice) "с оплатой" else "без оплаты",

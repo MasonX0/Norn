@@ -442,35 +442,126 @@ fun OrderPreview(
             }
             
             Spacer(modifier = Modifier.height(8.dp))
-            
+
+            Spacer(modifier = Modifier.height(8.dp))
+
             // Основание
             Text(
-                "Основание: ${orderData.basisText.ifBlank { "Представление и.о. зав. кафедрой «Вычислительная техника и инженерная кибернетика» Зарипова Д.М., виза согласования директора института цифровых систем, автоматизации и энергетики процессов Павловой З.Х." }}",
+                "Основание:",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                    textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline
+                )
+            )
+            Text(
+                orderData.basisText.ifBlank { "Представление и.о. зав. кафедрой «Вычислительная техника и инженерная кибернетика» Зарипова Д.М., виза согласования директора института цифровых систем, автоматизации и энергетики процессов Павловой З.Х." }
+                    .removePrefix("Основание:").trim(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             
             Spacer(modifier = Modifier.height(8.dp))
-            
-            // Подписи
+
+            // Все подписи
             Text(
                 "Подписи:",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
+                color = MaterialTheme.colorScheme.primary
             )
-            
-            val signatures = listOf(
+
+            val allSignatures = listOf(
                 "Проректор по учебной работе" to orderData.prorectorName,
                 "Начальник учебного отдела" to orderData.studyDepartmentHead,
+                "Начальник отдела взаимодействия с организациями-партнёрами" to orderData.partnershipDepartmentHead,
+                "Зам. начальника юридического отдела" to orderData.legalDepartmentDeputy,
+                "Руководитель учебно-производственной практики" to orderData.practiceManager,
                 "Директор IT-института" to orderData.instituteDirector
             )
-            
-            signatures.forEach { (position, name) ->
+
+            allSignatures.forEach { (position, name) ->
                 Text(
-                    "$position _________ $name",
+                    "$position _________ ${name.ifBlank { "NULL" }}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Согласование
+            Text(
+                orderData.agreeText.ifBlank { "СОГЛАСОВАНО" },
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Проект вносит
+            Text(
+                orderData.proposerText.ifBlank { "Проект вносит:\nИ.о. зав. кафедрой ВТИК _________ ${orderData.departmentHead.ifBlank { "NULL" }}" },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Общая статистика
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        "📊 Общая статистика приказа:",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    val totalStudents =
+                        budgetStudents.size + targetStudents.size + paidStudents.size
+
+                    Text(
+                        "• Всего студентов в приказе: $totalStudents",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Text(
+                        "• Бюджетников: ${budgetStudents.size}",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Text(
+                        "• Целевиков: ${targetStudents.size}",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Text(
+                        "• Платников: ${paidStudents.size}",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+
+                    val paidPracticeCount =
+                        (budgetStudents + targetStudents + paidStudents).count { it.isPaidPractice }
+                    Text(
+                        "• С оплачиваемой практикой: $paidPracticeCount",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+
+                    val stationaryCount =
+                        (budgetStudents + targetStudents + paidStudents).count { it.practiceForm == "стационарная" }
+                    val fieldCount =
+                        (budgetStudents + targetStudents + paidStudents).count { it.practiceForm == "выездная" }
+                    Text(
+                        "• Стационарная практика: $stationaryCount",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Text(
+                        "• Выездная практика: $fieldCount",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
             }
         }
     }
@@ -491,42 +582,84 @@ private fun OrderSection(
             style = MaterialTheme.typography.bodyMedium
         )
         
-        // Мини-таблица студентов (показываем первых 3)
-        students.take(3).forEachIndexed { index, student ->
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(start = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+        // Показываем всех студентов с актуальными данными
+        students.forEachIndexed { index, student ->
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, top = 4.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                )
             ) {
-                Text(
-                    "${startIndex + index}.",
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.width(30.dp)
-                )
-                Text(
-                    student.name,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.weight(1f)
-                )
-                Text(
-                    student.practiceForm,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                Column(
+                    modifier = Modifier.padding(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            "${startIndex + index}.",
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
+                            modifier = Modifier.width(30.dp)
+                        )
+                        Text(
+                            student.name.ifBlank { "NULL" },
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    
+                    // Актуальные данные студента
+                    Text(
+                        "База практики: ${student.nameOfPracticeBase.ifBlank { "NULL" }}, ${student.cityOfPractice.ifBlank { "NULL" }}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    
+                    Text(
+                        "Вид практики: ${student.typeOfPractice.ifBlank { "NULL" }}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    
+                    Text(
+                        "Сроки: ${student.periodOfPractice.ifBlank { "NULL" }}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            "Форма: ${student.practiceForm.ifBlank { "NULL" }}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        
+                        Text(
+                            if (student.isPaidPractice) "с оплатой" else "без оплаты",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (student.isPaidPractice) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    
+                    Text(
+                        "Руководитель: ${student.postOfHeadOfPracticeFromDepartment.ifBlank { "NULL" }} ${student.headOfPracticeFromDepartment.ifBlank { "NULL" }}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
         
-        if (students.size > 3) {
-            Text(
-                "... и еще ${students.size - 3} студентов",
-                style = MaterialTheme.typography.bodySmall.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 16.dp)
-            )
-        }
+        Spacer(modifier = Modifier.height(4.dp))
         
         Text(
             "Всего в секции: ${students.size} студентов",
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.bodySmall.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(start = 16.dp)
         )

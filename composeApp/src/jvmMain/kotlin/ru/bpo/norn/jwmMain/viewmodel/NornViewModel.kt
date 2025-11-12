@@ -22,6 +22,19 @@ import java.nio.charset.Charset
 
 class NornViewModel {
 
+    // ==================== Базовая директория ====================
+    private val _baseDirectory = MutableStateFlow<File?>(null)
+    val baseDirectory: StateFlow<File?> = _baseDirectory.asStateFlow()
+
+    fun selectBaseDirectory(directory: File?) {
+        _baseDirectory.value = directory
+        println("📁 Базовая директория установлена: ${directory?.absolutePath}")
+    }
+
+    fun getStartDirectory(): File {
+        return _baseDirectory.value ?: File(System.getProperty("user.home"))
+    }
+
     /**
      * Настраивает кодировку консоли для корректного отображения русских символов
      */
@@ -792,6 +805,21 @@ class NornViewModel {
                 it.withPayment || it.formOfStudy.contains("платн", ignoreCase = true)
             }.sortedBy { it.name }
 
+            // Функция для вычисления streamName если оно не задано явно в orderData
+            fun getStreamNameOrDefault(): String {
+                val trimmed = orderData.streamName.trim()
+                if (trimmed.isNotEmpty()) return trimmed
+
+                // Получаем список групп из всех студентов
+                val allGroups = students.mapNotNull { it.group }.toSet()
+                if (allGroups.isNotEmpty()) {
+                    // Склеиваем уникальные группы через запятую, сортировка по алфавиту
+                    return allGroups.sorted().joinToString(", ")
+                }
+                // Дефолтное значение, если нет групп
+                return "БПО09-24 и БПО09и-24"
+            }
+
             // Создаем новый документ
             XWPFDocument().use { document ->
                 // Заголовок документа
@@ -806,7 +834,8 @@ class NornViewModel {
                         budgetStudents,
                         1,
                         "бюджетной основе",
-                        globalIndex
+                        globalIndex,
+                        orderData
                     )
                 }
 
@@ -817,13 +846,21 @@ class NornViewModel {
                         targetStudents,
                         2,
                         "целевой основе",
-                        globalIndex
+                        globalIndex,
+                        orderData
                     )
                 }
 
                 // Секция для платных студентов
                 if (paidStudents.isNotEmpty()) {
-                    addStudentsSection(document, paidStudents, 3, "платной основе", globalIndex)
+                    addStudentsSection(
+                        document, 
+                        paidStudents, 
+                        3, 
+                        "платной основе", 
+                        globalIndex,
+                        orderData
+                    )
                 }
 
                 // Подписи
@@ -881,21 +918,29 @@ class NornViewModel {
 
     /**
      * Добавляет секцию со студентами определенной формы обучения
+     * Теперь использует streamName из OrderData, если оно указано, иначе вычисляет по группам студентов.
      */
     private fun addStudentsSection(
         document: XWPFDocument,
         students: List<Student>,
         sectionNumber: Int,
         fundingType: String,
-        startIndex: Int
+        startIndex: Int,
+        orderData: OrderData
     ): Int {
+        // Получаем streamName либо вычисляем автоматически
+        val streamName = orderData.streamName.trim().ifBlank {
+            // Вычисляем название потока на основе групп студентов
+            calculateStreamName(students)
+        }
+
         // Заголовок секции с красной строкой
         val sectionParagraph = document.createParagraph()
         sectionParagraph.indentationFirstLine = 250 // 1.25 см красная строка
         sectionParagraph.indentationLeft = 0 // левая граница на нуле
 
         val sectionRun = sectionParagraph.createRun()
-        sectionRun.setText("$sectionNumber Нижеперечисленных студентов потока БПО09-24 и БПО09и-24 направления 09.03.01 Информатика и вычислительная техника, профиля «Технологии искусственного интеллекта в нефтегазовой отрасли», обучающихся на ")
+        sectionRun.setText("$sectionNumber Нижеперечисленных студентов потока $streamName направления 09.03.01 Информатика и вычислительная техника, профиля «Технологии искусственного интеллекта в нефтегазовой отрасли», обучающихся на ")
         sectionRun.setFontSize(12)
         sectionRun.setFontFamily("Times New Roman")
         sectionRun.isBold = false
@@ -1296,6 +1341,28 @@ class NornViewModel {
     }
 
     // ==================== 6. УТИЛИТЫ ====================
+
+    /**
+     * Вычисляет название потока на основе списка студентов
+     * Убирает хвостовые части (например, "-24", "-25", ", ..." и повторяющиеся группы)
+     */
+    private fun calculateStreamName(students: List<Student>): String {
+        // Собираем уникальные группы
+        val groups = students.mapNotNull { it.group }.toSet().sorted()
+        // Если групп нет — возвращаем дефолт
+        if (groups.isEmpty()) return "БПО09-24 и БПО09и-24"
+
+        // Функция для очистки хвостов у группы (например, убирает '-24' и всё после них)
+        fun cleanGroupName(groupName: String): String {
+            // Убираем все что после дефиса + 2-3 символов
+            val re = Regex("([^-]+-\\w+)")
+            val match = re.find(groupName)
+            return match?.value ?: groupName
+        }
+
+        val cleaned = groups.map { cleanGroupName(it) }
+        return cleaned.distinct().joinToString(", ")
+    }
 
     fun getMockStudent(): Student {
         return mockStudent

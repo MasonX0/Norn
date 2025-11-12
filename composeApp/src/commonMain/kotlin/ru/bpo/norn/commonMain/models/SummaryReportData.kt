@@ -44,6 +44,7 @@ data class OrderData(
     val headerText: String = "",
     val titleText: String = "",
     val instituteText: String = "",
+    val streamName: String = "", // Название потока (автоматически вычисляется, но можно переопределить)
     val practiceType: String = "учебной практике (ознакомительной практике)",
     val institute: String = "По институту цифровых систем, автоматизации и энергетики процессов",
     val direction: String = "09.03.01 Информатика и вычислительная техника",

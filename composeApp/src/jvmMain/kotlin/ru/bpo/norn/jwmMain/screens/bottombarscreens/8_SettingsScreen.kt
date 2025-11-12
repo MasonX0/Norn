@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -15,11 +15,14 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import ru.bpo.norn.jwmMain.viewmodel.NornViewModel
 import java.awt.Desktop
+import java.io.File
 import java.net.URI
+import javax.swing.JFileChooser
 
 
 @Composable
 fun SettingsScreen(viewModel: NornViewModel) {
+    val baseDirectory by viewModel.baseDirectory.collectAsState()
 
     Column(
         modifier = Modifier
@@ -33,6 +36,89 @@ fun SettingsScreen(viewModel: NornViewModel) {
             color = MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.headlineSmall
         )
+
+        // Секция управления базовой директорией
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    "📁 Базовая директория",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                Text(
+                    "Установите папку, откуда будут начинаться поиски файлов во всех экранах",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                // Отображение текущей директории
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            "Текущая базовая директория:",
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            baseDirectory?.absolutePath
+                                ?: "Не установлена (используется домашняя папка)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            val fileChooser = JFileChooser().apply {
+                                fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
+                                dialogTitle = "Выберите базовую директорию"
+                                currentDirectory =
+                                    baseDirectory ?: File(System.getProperty("user.home"))
+                            }
+
+                            if (fileChooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
+                                viewModel.selectBaseDirectory(fileChooser.selectedFile)
+                            }
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("📂 Выбрать папку")
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            viewModel.selectBaseDirectory(null)
+                        },
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        ),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
+                    ) {
+                        Text("🗑️ Сбросить")
+                    }
+                }
+            }
+        }
 
         // Секция управления темой
         Card(

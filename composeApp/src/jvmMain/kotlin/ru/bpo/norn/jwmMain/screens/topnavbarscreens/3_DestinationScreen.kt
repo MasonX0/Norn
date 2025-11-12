@@ -71,10 +71,16 @@ fun DestinationScreen(viewModel: NornViewModel) {
                         onClick = {
                             val fileChooser = JFileChooser().apply {
                                 fileSelectionMode = JFileChooser.FILES_ONLY
-                                fileFilter =
-                                    FileNameExtensionFilter("Word документы", "docx", "doc")
-                                dialogTitle = "Выберите шаблон направления"
-                                currentDirectory = File(System.getProperty("user.home"), "Desktop")
+                                dialogTitle = "Выберите файл шаблона направления"
+                                addChoosableFileFilter(
+                                    FileNameExtensionFilter(
+                                        "Word документы (*.docx)",
+                                        "docx"
+                                    )
+                                )
+                                fileFilter = FileNameExtensionFilter("Word документы", "docx")
+                                isAcceptAllFileFilterUsed = false
+                                currentDirectory = viewModel.getStartDirectory()
                             }
 
                             if (fileChooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
@@ -198,6 +204,7 @@ fun DestinationScreen(viewModel: NornViewModel) {
                 val folderChooser = JFileChooser().apply {
                     fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
                     dialogTitle = "Выберите папку для сохранения направлений"
+                    currentDirectory = viewModel.getStartDirectory()
                 }
                 
                 val result = folderChooser.showOpenDialog(null)

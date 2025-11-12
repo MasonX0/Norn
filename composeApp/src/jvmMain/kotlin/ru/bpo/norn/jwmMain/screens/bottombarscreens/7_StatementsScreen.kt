@@ -36,7 +36,7 @@ fun StatementsScreen(viewModel: NornViewModel) {
         // Кнопка выбора PDF файла
         Button(onClick = {
             val fileChooser = JFileChooser().apply {
-                currentDirectory = File(System.getProperty("user.home"), "Desktop")
+                currentDirectory = viewModel.getStartDirectory()
                 dialogTitle = "Выберите PDF документ"
                 addChoosableFileFilter(FileNameExtensionFilter("PDF документы (*.pdf)", "pdf"))
                 fileFilter = FileNameExtensionFilter("PDF документы", "pdf")

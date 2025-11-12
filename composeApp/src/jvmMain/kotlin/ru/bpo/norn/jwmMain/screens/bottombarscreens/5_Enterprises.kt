@@ -83,10 +83,10 @@ fun Enterprises(viewModel: NornViewModel) {
 
             Button(onClick = {
                 val fileChooser = JFileChooser().apply {
-                    currentDirectory = File(System.getProperty("user.home"), "Desktop")
-                    dialogTitle = "Выберите текстовый документ с предприятиями"
-                    addChoosableFileFilter(FileNameExtensionFilter("Текстовые файлы (*.txt)", "txt"))
-                    fileFilter = FileNameExtensionFilter("Текстовые файлы", "txt")
+                    currentDirectory = viewModel.getStartDirectory()
+                    dialogTitle = "Выберите файл с данными предприятий"
+                    addChoosableFileFilter(FileNameExtensionFilter("TXT файлы", "txt"))
+                    fileFilter = FileNameExtensionFilter("TXT файлы", "txt")
                     isAcceptAllFileFilterUsed = false
                 }
 

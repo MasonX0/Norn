@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import ru.bpo.norn.commonMain.models.OrderData
+import ru.bpo.norn.commonMain.models.Student
 import ru.bpo.norn.jwmMain.viewmodel.NornViewModel
 
 @Composable
@@ -234,6 +235,23 @@ fun OrderEditForm(
         }
 
         item {
+            OutlinedTextField(
+                value = orderData.streamName,
+                onValueChange = { onDataChange(orderData.copy(streamName = it)) },
+                label = { Text("Название потока") },
+                placeholder = { Text("БПО09-24 и БПО09и-24 (автоматически вычисляется из групп)") },
+                modifier = Modifier.fillMaxWidth(),
+                supportingText = {
+                    Text(
+                        "💡 Оставьте пустым для автоматического вычисления на основе групп студентов",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            )
+        }
+
+        item {
             Text(
                 "Основание и подписи",
                 style = MaterialTheme.typography.labelLarge,
@@ -358,9 +376,9 @@ fun OrderEditForm(
 @Composable
 fun OrderPreview(
     orderData: OrderData,
-    budgetStudents: List<ru.bpo.norn.commonMain.models.Student>,
-    targetStudents: List<ru.bpo.norn.commonMain.models.Student>,
-    paidStudents: List<ru.bpo.norn.commonMain.models.Student>
+    budgetStudents: List<Student>,
+    targetStudents: List<Student>,
+    paidStudents: List<Student>
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -419,7 +437,8 @@ fun OrderPreview(
                     sectionNumber = 1,
                     fundingType = "бюджетной основе",
                     students = budgetStudents,
-                    startIndex = 1
+                    startIndex = 1,
+                    streamName = orderData.streamName.ifBlank { calculateStreamName(budgetStudents) }
                 )
             }
             
@@ -428,7 +447,8 @@ fun OrderPreview(
                     sectionNumber = 2,
                     fundingType = "целевой основе", 
                     students = targetStudents,
-                    startIndex = budgetStudents.size + 1
+                    startIndex = budgetStudents.size + 1,
+                    streamName = orderData.streamName.ifBlank { calculateStreamName(targetStudents) }
                 )
             }
             
@@ -437,7 +457,8 @@ fun OrderPreview(
                     sectionNumber = 3,
                     fundingType = "платной основе",
                     students = paidStudents,
-                    startIndex = budgetStudents.size + targetStudents.size + 1
+                    startIndex = budgetStudents.size + targetStudents.size + 1,
+                    streamName = orderData.streamName.ifBlank { calculateStreamName(paidStudents) }
                 )
             }
             
@@ -571,14 +592,15 @@ fun OrderPreview(
 private fun OrderSection(
     sectionNumber: Int,
     fundingType: String,
-    students: List<ru.bpo.norn.commonMain.models.Student>,
-    startIndex: Int
+    students: List<Student>,
+    startIndex: Int,
+    streamName: String
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Text(
-            "$sectionNumber Нижеперечисленных студентов потока БПО09-24 и БПО09и-24 направления 09.03.01 Информатика и вычислительная техника, профиля «Технологии искусственного интеллекта в нефтегазовой отрасли», обучающихся на $fundingType, направить для прохождения практики на следующие базы практик:",
+            "$sectionNumber Нижеперечисленных студентов потока $streamName направления 09.03.01 Информатика и вычислительная техника, профиля «Технологии искусственного интеллекта в нефтегазовой отрасли», обучающихся на $fundingType, направить для прохождения практики на следующие базы практик:",
             style = MaterialTheme.typography.bodyMedium
         )
         
@@ -663,5 +685,29 @@ private fun OrderSection(
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(start = 16.dp)
         )
+    }
+}
+
+// Helper function to calculate the stream name
+fun calculateStreamName(students: List<Student>): String {
+    val streams = students
+        .map { it.group }
+        .distinct()
+        .mapNotNull { groupName ->
+            // БПО09-24-01 -> БПО09-24, БПО09и-24-02 -> БПО09и-24
+            val parts = groupName.split('-')
+            if (parts.size > 1) {
+                parts.dropLast(1).joinToString("-")
+            } else {
+                groupName // если нет тире, возвращаем как есть
+            }
+        }
+        .distinct()
+        .sorted()
+
+    return if (streams.isNotEmpty()) {
+        streams.joinToString(" и ")
+    } else {
+        "БПО09-24 и БПО09и-24" // fallback к дефолтному значению
     }
 }

@@ -76,7 +76,7 @@ fun StudentsListScreen(viewModel: NornViewModel) {
         // Кнопка выбора Excel файла
         Button(onClick = {
             val fileChooser = JFileChooser().apply {
-                currentDirectory = File(System.getProperty("user.home"), "Desktop")
+                currentDirectory = viewModel.getStartDirectory()
                 dialogTitle = "Выберите Excel файл со студентами"
                 addChoosableFileFilter(FileNameExtensionFilter("Excel файлы (*.xlsx, *.xls)", "xlsx", "xls"))
                 fileFilter = FileNameExtensionFilter("Excel файлы", "xlsx", "xls")

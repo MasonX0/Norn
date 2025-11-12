@@ -4,6 +4,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,7 +27,10 @@ fun InfoScreen(viewModel: NornViewModel) {
     var showGroupDialog by remember { mutableStateOf(false) }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(15.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(15.dp)
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(15.dp)
     ) {
         Text("Панель управления данными студентов", style = MaterialTheme.typography.headlineSmall)
@@ -355,6 +360,7 @@ private fun GroupEditDialog(
                             periodOfPractice = if (isPeriodOfPracticeSet) periodOfPractice else student.periodOfPractice,
                             formOfStudy = if (isFormOfStudySet) formOfStudy else student.formOfStudy,
                             withPayment = withPayment,
+                            isPaidPractice = withPayment, 
                             cityOfPractice = if (isCityOfPracticeSet) cityOfPractice else student.cityOfPractice,
                             nameOfSpeciality = if (isNameOfSpecialitySet) nameOfSpeciality else student.nameOfSpeciality,
                             codeOfSpeciality = if (isCodeOfSpecialitySet) codeOfSpeciality else student.codeOfSpeciality,
@@ -504,6 +510,7 @@ private fun StudentEditDialog(
                                 periodOfPractice = periodOfPractice,
                                 formOfStudy = formOfStudy,
                                 withPayment = withPayment,
+                                isPaidPractice = withPayment, 
                                 cityOfPractice = cityOfPractice,
                                 nameOfSpeciality = nameOfSpeciality,
                                 codeOfSpeciality = codeOfSpeciality,

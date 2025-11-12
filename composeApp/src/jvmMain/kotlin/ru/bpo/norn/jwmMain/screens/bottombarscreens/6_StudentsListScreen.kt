@@ -5,6 +5,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,6 +20,7 @@ import java.io.File
 import java.text.SimpleDateFormat
 import javax.swing.JFileChooser
 import javax.swing.filechooser.FileNameExtensionFilter
+
 @Composable
 fun StudentsListScreen(viewModel: NornViewModel) {
     val groups by viewModel.groups.collectAsState()
@@ -35,6 +38,7 @@ fun StudentsListScreen(viewModel: NornViewModel) {
     var editedBranch by remember { mutableStateOf("") }
     var editedFaculty by remember { mutableStateOf("") }
     var editedGroup by remember { mutableStateOf("") }
+    var editedIsPaidPractice by remember { mutableStateOf("") }
 
     // Обновляем поля когда выбираем студента
     LaunchedEffect(selectedStudent) {
@@ -44,11 +48,15 @@ fun StudentsListScreen(viewModel: NornViewModel) {
             editedBranch = student.cityOfPractice
             editedFaculty = student.nameOfDirection
             editedGroup = student.group
+            editedIsPaidPractice = if (student.isPaidPractice) "Да" else "Нет"
         }
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(15.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(15.dp)
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(15.dp)
     ) {
         Text(
@@ -275,6 +283,23 @@ fun StudentsListScreen(viewModel: NornViewModel) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // Кнопка для теста
+        if (selectedStudent != null) {
+            Button(
+                onClick = {
+                    println("🧪 Тестирование обновления студента: ${selectedStudent?.name}")
+                    selectedStudent?.let { student ->
+                        val testStudent = student.copy(
+                            gradeForPractice = "ТЕСТ: ${System.currentTimeMillis()}"
+                        )
+                        viewModel.updateStudentData(testStudent)
+                    }
+                }
+            ) {
+                Text("🧪 Тест обновления студента")
+            }
+        }
+
         generationResult?.let { result ->
             Text(
                 result,
@@ -289,7 +314,7 @@ fun StudentsListScreen(viewModel: NornViewModel) {
         }
     }
 
-    // Диалог редактирования студента (остается без изменений)
+    // Диалог редактирования студента 
     if (showEditDialog) {
         AlertDialog(
             onDismissRequest = { viewModel.closeStudentEditDialog() },
@@ -331,6 +356,13 @@ fun StudentsListScreen(viewModel: NornViewModel) {
                         label = { Text("Факультет") },
                         modifier = Modifier.fillMaxWidth()
                     )
+
+                    OutlinedTextField(
+                        value = editedIsPaidPractice,
+                        onValueChange = { editedIsPaidPractice = it },
+                        label = { Text("Платная практика") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             },
             confirmButton = {
@@ -352,6 +384,7 @@ fun StudentsListScreen(viewModel: NornViewModel) {
                                     periodOfPractice = currentStudent.periodOfPractice,
                                     formOfStudy = editedFundingType,
                                     withPayment = currentStudent.withPayment,
+                                    isPaidPractice = editedIsPaidPractice == "Да",
                                     cityOfPractice = editedBranch,
                                     nameOfSpeciality = currentStudent.nameOfSpeciality,
                                     codeOfSpeciality = currentStudent.codeOfSpeciality,

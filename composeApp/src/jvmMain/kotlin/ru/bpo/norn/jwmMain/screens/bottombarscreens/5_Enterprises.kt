@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,7 +38,10 @@ fun Enterprises(viewModel: NornViewModel) {
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(15.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(15.dp)
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(15.dp)
     ) {
         Text(
@@ -298,20 +303,39 @@ private fun EnterpriseEditDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text("✏️ Редактировать предприятие")
+            Text(
+                "✏️ Редактировать предприятие",
+                style = MaterialTheme.typography.headlineSmall
+            )
         },
         text = {
             Column(
                 modifier = Modifier
-                    .width(600.dp)
-                    .heightIn(max = 600.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                    .width(800.dp)
+                    .heightIn(min = 400.dp, max = 700.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Text(
-                    "Предприятие: ${enterprise?.name ?: ""}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
+                // Название предприятия
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            "🏢 Предприятие:",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            enterprise?.name ?: "",
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                }
 
                 // Редактирование города
                 Card(
@@ -320,11 +344,12 @@ private fun EnterpriseEditDialog(
                         containerColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                 ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
+                    Column(modifier = Modifier.padding(16.dp)) {
                         Text(
                             "🏙️ Город:",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(bottom = 8.dp)
                         )
                         OutlinedTextField(
                             value = cityText,
@@ -343,72 +368,89 @@ private fun EnterpriseEditDialog(
                         containerColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                 ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
+                    Column(modifier = Modifier.padding(16.dp)) {
                         Text(
                             "🏢 Тип предприятия:",
-                            style = MaterialTheme.typography.titleSmall,
+                            style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(bottom = 8.dp)
+                            modifier = Modifier.padding(bottom = 12.dp)
                         )
-                        
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Checkbox(
-                                checked = isForeign,
-                                onCheckedChange = { isForeign = it }
-                            )
-                            Text("🌍 Зарубежное", modifier = Modifier.weight(1f))
-                        }
-                        
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Checkbox(
-                                checked = isSoluniTyulyukInzer,
-                                onCheckedChange = { isSoluniTyulyukInzer = it }
-                            )
-                            Text("🏔️ Солуни/Тюлюк/Инзер", modifier = Modifier.weight(1f))
-                        }
-                        
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Checkbox(
-                                checked = isDepartment,
-                                onCheckedChange = { isDepartment = it }
-                            )
-                            Text("🎓 Кафедра", modifier = Modifier.weight(1f))
-                        }
-                        
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Checkbox(
-                                checked = isUniversitySubdivision,
-                                onCheckedChange = { isUniversitySubdivision = it }
-                            )
-                            Text("🏛️ Структурное подразделение", modifier = Modifier.weight(1f))
-                        }
-                        
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Checkbox(
-                                checked = isBaseDepartment,
-                                onCheckedChange = { isBaseDepartment = it }
-                            )
-                            Text("🏭 Базовая кафедра", modifier = Modifier.weight(1f))
+
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = isForeign,
+                                    onCheckedChange = { isForeign = it }
+                                )
+                                Text(
+                                    "🌍 Зарубежное предприятие",
+                                    modifier = Modifier.padding(start = 8.dp),
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = isSoluniTyulyukInzer,
+                                    onCheckedChange = { isSoluniTyulyukInzer = it }
+                                )
+                                Text(
+                                    "🏔️ Солуни/Тюлюк/Инзер",
+                                    modifier = Modifier.padding(start = 8.dp),
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = isDepartment,
+                                    onCheckedChange = { isDepartment = it }
+                                )
+                                Text(
+                                    "🎓 Кафедра",
+                                    modifier = Modifier.padding(start = 8.dp),
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = isUniversitySubdivision,
+                                    onCheckedChange = { isUniversitySubdivision = it }
+                                )
+                                Text(
+                                    "🏛️ Структурное подразделение вуза",
+                                    modifier = Modifier.padding(start = 8.dp),
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = isBaseDepartment,
+                                    onCheckedChange = { isBaseDepartment = it }
+                                )
+                                Text(
+                                    "🏭 Базовая кафедра",
+                                    modifier = Modifier.padding(start = 8.dp),
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
                         }
                     }
                 }
@@ -420,7 +462,7 @@ private fun EnterpriseEditDialog(
                         containerColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                 ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
+                    Column(modifier = Modifier.padding(16.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -428,7 +470,7 @@ private fun EnterpriseEditDialog(
                         ) {
                             Text(
                                 "👨‍💼 Руководители практики:",
-                                style = MaterialTheme.typography.titleSmall,
+                                style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.primary
                             )
                             Button(
@@ -447,13 +489,15 @@ private fun EnterpriseEditDialog(
                             }
                         }
 
+                        Spacer(modifier = Modifier.height(12.dp))
+
                         // Список руководителей в ограниченном LazyColumn
                         if (supervisorsList.isNotEmpty()) {
                             LazyColumn(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(200.dp), // Фиксированная высота для избежания бесконечных ограничений
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    .height(300.dp), // Увеличена высота
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 itemsIndexed(supervisorsList) { index, supervisor ->
                                     SupervisorEditCard(
@@ -479,17 +523,17 @@ private fun EnterpriseEditDialog(
                                 )
                             ) {
                                 Column(
-                                    modifier = Modifier.padding(12.dp),
+                                    modifier = Modifier.padding(16.dp),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
                                     Text(
                                         "❌ Нет руководителей",
-                                        style = MaterialTheme.typography.bodyMedium,
+                                        style = MaterialTheme.typography.bodyLarge,
                                         color = MaterialTheme.colorScheme.onErrorContainer
                                     )
                                     Text(
-                                        "Добавьте хотя бы одного руководителя",
-                                        style = MaterialTheme.typography.bodySmall,
+                                        "Добавьте хотя бы одного руководителя практики",
+                                        style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onErrorContainer
                                     )
                                 }
@@ -517,7 +561,7 @@ private fun EnterpriseEditDialog(
                 },
                 enabled = cityText.isNotBlank()
             ) {
-                Text("💾 Сохранить")
+                Text("💾 Сохранить изменения")
             }
         },
         dismissButton = {

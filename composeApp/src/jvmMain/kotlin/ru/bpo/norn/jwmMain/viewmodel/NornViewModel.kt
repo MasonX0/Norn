@@ -21,6 +21,22 @@ import java.nio.charset.Charset
 
 class NornViewModel {
 
+    /**
+     * Настраивает кодировку консоли для корректного отображения русских символов
+     */
+    init {
+        try {
+            System.setProperty("file.encoding", "UTF-8")
+            System.setProperty("console.encoding", "UTF-8")
+            // Для Windows - устанавливаем кодовую страницу
+            if (System.getProperty("os.name").lowercase().contains("windows")) {
+                Runtime.getRuntime().exec("chcp 65001")
+            }
+        } catch (e: Exception) {
+            println("⚠️ Не удалось настроить кодировку консоли: ${e.message}")
+        }
+    }
+
     private val _isDarkTheme = MutableStateFlow<Boolean>(false)
     val isDarkTheme: StateFlow<Boolean> = _isDarkTheme.asStateFlow()
 
@@ -548,47 +564,66 @@ class NornViewModel {
     }
 
     fun selectStudentForEditing(student: Student) {
+        println("📝 Выбран студент для редактирования: ${student.name}")
         _selectedStudent.value = student
         _showStudentEditDialog.value = true
     }
 
     fun updateStudentData(updatedStudent: Student) {
+        println("🔄 Обновление данных студента: ${updatedStudent.name}")
         val currentGroup = _selectedGroup.value
+        val originalStudent = _selectedStudent.value
 
-        if (currentGroup != null) {
+        if (currentGroup != null && originalStudent != null) {
+            println("📋 Текущая группа: ${currentGroup.name}")
+            println("👤 Исходный студент: ${originalStudent.name}")
+
             val updatedStudents = currentGroup.students.map { student ->
-                if (student.name == updatedStudent.name) {
+                if (student == originalStudent) { // Сравниваем объекты, а не имена
+                    println("✅ Найден студент для обновления: ${originalStudent.name} -> ${updatedStudent.name}")
                     updatedStudent
                 } else {
                     student
                 }
             }
 
+            println("🔄 Обновление группы с ${updatedStudents.size} студентами")
             repository.updateGroupStudents(currentGroup.name, updatedStudents)
 
-            // Обновляем выбранную группу
+            // Обновляем выбранную группу после изменения состава студентов
             _selectedGroup.value = repository.getGroupByName(currentGroup.name)
 
-            // Не сбрасываем выбранного студента при групповом обновлении
-            if (_selectedStudent.value?.name != updatedStudent.name) {
-                _showStudentEditDialog.value = false
-                _selectedStudent.value = null
+            // Если редактировался тот же студент (по имени и/или номеру зачетки), обновим и его в selectedStudent
+            if (_selectedStudent.value != null && _selectedStudent.value?.name == originalStudent.name) {
+                _selectedStudent.value = updatedStudent
             }
 
+            // После успешного обновления закрыть диалог редактирования
+            _showStudentEditDialog.value = false
+
             println("✅ Данные студента обновлены: ${updatedStudent.name}")
+        } else {
+            println("❌ Отсутствуют данные: группа=${currentGroup?.name}, студент=${originalStudent?.name}")
         }
     }
 
     fun closeStudentEditDialog() {
+        println("🔒 Закрытие диалога редактирования студента")
+        println("🔒 Состояние до: showDialog=${_showStudentEditDialog.value}, selectedStudent=${_selectedStudent.value?.name}")
         _showStudentEditDialog.value = false
         _selectedStudent.value = null
+        println("🔒 Состояние после: showDialog=${_showStudentEditDialog.value}, selectedStudent=${_selectedStudent.value?.name}")
     }
 
     // ==================== 5. ДАННЫЕ ОТЧЕТА ПО ПРАКТИКЕ ====================
-    
+
     private val _summaryReportData = MutableStateFlow(SummaryReportData())
     val summaryReportData: StateFlow<SummaryReportData> = _summaryReportData.asStateFlow()
-    
+
+    // Статус генерации документов
+    private val _documentGenerationStatus = MutableStateFlow("")
+    val documentGenerationStatus: StateFlow<String> = _documentGenerationStatus.asStateFlow()
+
     fun updateSummaryReportData(data: SummaryReportData) {
         _summaryReportData.value = data
     }
@@ -1056,6 +1091,40 @@ class NornViewModel {
     }
 
     /**
+     * Генерирует отчет по практике без шаблона (создает новый документ)
+     */
+    fun generateSummaryReportWithoutTemplate(
+        reportData: SummaryReportData,
+        groupStatistics: Map<String, ru.bpo.norn.commonMain.models.GroupStatistics>
+    ): Boolean {
+        return try {
+            _documentGenerationStatus.value = "🔄 Создание документа..."
+
+            val outputFile = File(
+                System.getProperty("user.home"),
+                "Desktop/Сводный_отчет_по_практике.docx"
+            )
+
+            val success = createSummaryReportFromScratch(reportData, groupStatistics, outputFile)
+
+            if (success) {
+                _documentGenerationStatus.value = "✅ Отчет создан: ${outputFile.absolutePath}"
+                println("✅ Сводный отчет создан: ${outputFile.absolutePath}")
+                true
+            } else {
+                _documentGenerationStatus.value = "❌ Ошибка при создании отчета"
+                println("❌ Ошибка при создании сводного отчета")
+                false
+            }
+        } catch (e: Exception) {
+            _documentGenerationStatus.value = "❌ Ошибка: ${e.message}"
+            println("❌ Исключение при создании сводного отчета: ${e.message}")
+            e.printStackTrace()
+            false
+        }
+    }
+
+    /**
      * Создает Word документ с отчетом по практике
      */
     private fun createSummaryReportDocument(
@@ -1094,6 +1163,382 @@ class NornViewModel {
             e.printStackTrace()
             false
         }
+    }
+
+    /**
+     * Создает Word документ с отчетом по практике без шаблона
+     */
+    private fun createSummaryReportFromScratch(
+        reportData: SummaryReportData,
+        groupStatistics: Map<String, ru.bpo.norn.commonMain.models.GroupStatistics>,
+        outputFile: File
+    ): Boolean {
+        return try {
+            XWPFDocument().use { document ->
+                // Заголовок отчета - одна строка по центру
+                val titleParagraph = document.createParagraph()
+                titleParagraph.alignment = org.apache.poi.xwpf.usermodel.ParagraphAlignment.CENTER
+                val titleRun = titleParagraph.createRun()
+                titleRun.setText("${reportData.departmentName.ifBlank { "Кафедра Вычислительная техника и инженерная кибернетика" }} ${reportData.academicYear.ifBlank { "2024-2025 учебный год" }}")
+                titleRun.setFontSize(14)
+                titleRun.setBold(false)
+                titleRun.setFontFamily("Times New Roman")
+
+                // Пустая строка
+                document.createParagraph()
+
+                // 1. Таблица со статистикой
+                val numberParagraph = document.createParagraph()
+                numberParagraph.alignment = org.apache.poi.xwpf.usermodel.ParagraphAlignment.LEFT
+                val numberRun = numberParagraph.createRun()
+                numberRun.setText("1.")
+                numberRun.setFontSize(14)
+                numberRun.setBold(false)
+                numberRun.setFontFamily("Times New Roman")
+
+                val table = document.createTable()
+
+                // Устанавливаем ширину таблицы
+                table.width = 10000 // Ширина в twentieths of a point (1440 = 1 inch)
+
+                // Получаем CTTbl для настройки свойств таблицы
+                val ctTbl = table.ctTbl
+                val tblPr = ctTbl.tblPr ?: ctTbl.addNewTblPr()
+
+                // Устанавливаем тип ширины таблицы
+                val tblW = tblPr.tblW ?: tblPr.addNewTblW()
+                tblW.type = org.openxmlformats.schemas.wordprocessingml.x2006.main.STTblWidth.DXA
+                tblW.w = java.math.BigInteger.valueOf(10000)
+
+                // Устанавливаем поведение таблицы - фиксированные размеры колонок
+                val tblLayout = tblPr.tblLayout ?: tblPr.addNewTblLayout()
+                tblLayout.type =
+                    org.openxmlformats.schemas.wordprocessingml.x2006.main.STTblLayoutType.FIXED
+
+                // Заголовок таблицы
+                val headerRow = table.getRow(0)
+
+                // Определяем ширины колонок (в twentieths of a point)
+                val columnWidths = intArrayOf(
+                    1200,  // Группа
+                    1500,  // сроки практики
+                    2000,  // вид практики
+                    800,   // всего чел
+                    800,   // предприятия заруб
+                    800,   // предприятия РФ
+                    1000,  // Солуни, Тюлюк Инзер
+                    800,   // кафедра
+                    1200,  // Структурные Подразделения вуза
+                    800,   // Базовые кафедры
+                    1200   // кол-во студ. на оплачиваемых местах
+                )
+
+                val headers = listOf(
+                    "Группа",
+                    "сроки практики",
+                    "вид практики (учебная производственная, преддипломная, НИР)",
+                    "всего чел",
+                    "предприятия заруб",
+                    "предприятия РФ",
+                    "Солуни, Тюлюк Инзер",
+                    "кафедра",
+                    "Структурные Подразделения вуза",
+                    "Базовые кафедры",
+                    "кол-во студ. Прошедших практику на оплачиваемых местах"
+                )
+
+                // Добавляем недостающие ячейки и устанавливаем ширины
+                while (headerRow.tableCells.size < headers.size) {
+                    headerRow.addNewTableCell()
+                }
+
+                headers.forEachIndexed { index, header ->
+                    val cell = headerRow.getCell(index)
+
+                    // Устанавливаем ширину ячейки
+                    val ctTc = cell.ctTc
+                    val tcPr = ctTc.tcPr ?: ctTc.addNewTcPr()
+                    val tcW = tcPr.tcW ?: tcPr.addNewTcW()
+                    tcW.type = org.openxmlformats.schemas.wordprocessingml.x2006.main.STTblWidth.DXA
+                    tcW.w = java.math.BigInteger.valueOf(columnWidths[index].toLong())
+
+                    // Очищаем и заполняем содержимое
+                    cell.removeParagraph(0)
+                    val p = cell.addParagraph()
+                    p.alignment = org.apache.poi.xwpf.usermodel.ParagraphAlignment.CENTER
+                    val run = p.createRun()
+                    run.setText(header)
+                    run.setFontSize(14)
+                    run.setBold(false)
+                    run.setFontFamily("Times New Roman")
+                }
+
+                // Добавляем данные групп
+                groupStatistics.forEach { (groupName, stats) ->
+                    val row = table.createRow()
+                    val values = listOf(
+                        groupName,
+                        "${stats.practiceStartDate}-${stats.practiceEndDate}",
+                        stats.practiceType,
+                        stats.totalStudents.toString(),
+                        stats.foreignEnterprises.toString(),
+                        stats.rfEnterprises.toString(),
+                        stats.soluniTyulyukInzer.toString(),
+                        stats.departmentStudents.toString(),
+                        stats.universitySubdivisions.toString(),
+                        stats.baseDepartments.toString(),
+                        stats.paidPracticeStudents.toString()
+                    )
+
+                    values.forEachIndexed { index, value ->
+                        val cell = row.getCell(index)
+
+                        // Устанавливаем ширину ячейки для данных
+                        val ctTc = cell.ctTc
+                        val tcPr = ctTc.tcPr ?: ctTc.addNewTcPr()
+                        val tcW = tcPr.tcW ?: tcPr.addNewTcW()
+                        tcW.type =
+                            org.openxmlformats.schemas.wordprocessingml.x2006.main.STTblWidth.DXA
+                        tcW.w = java.math.BigInteger.valueOf(columnWidths[index].toLong())
+
+                        cell.removeParagraph(0)
+                        val p = cell.addParagraph()
+                        val run = p.createRun()
+                        run.setText(value)
+                        run.setFontSize(14)
+                        run.setBold(false)
+                        run.setFontFamily("Times New Roman")
+                    }
+
+                    // Добавляем строку с иностранными студентами если есть
+                    if (stats.foreignStudents > 0) {
+                        val foreignRow = table.createRow()
+                        val foreignValues = listOf(
+                            "из них иностранных студентов",
+                            "", // сроки
+                            "", // вид практики
+                            stats.foreignStudents.toString(),
+                            "0",
+                            "0",
+                            "0",
+                            stats.foreignStudents.toString(),
+                            "0",
+                            "0",
+                            "0"
+                        )
+                        foreignValues.forEachIndexed { index, value ->
+                            val cell = foreignRow.getCell(index)
+                            // Устанавливаем ширину ячейки для данных
+                            val ctTc = cell.ctTc
+                            val tcPr = ctTc.tcPr ?: ctTc.addNewTcPr()
+                            val tcW = tcPr.tcW ?: tcPr.addNewTcW()
+                            tcW.type =
+                                org.openxmlformats.schemas.wordprocessingml.x2006.main.STTblWidth.DXA
+                            tcW.w = java.math.BigInteger.valueOf(columnWidths[index].toLong())
+                            cell.removeParagraph(0)
+                            val p = cell.addParagraph()
+                            val run = p.createRun()
+                            run.setText(value)
+                            run.setFontSize(14)
+                            run.setBold(false)
+                            run.setFontFamily("Times New Roman")
+                        }
+                    }
+                }
+
+                // Пустые строки
+                document.createParagraph()
+                document.createParagraph()
+
+                // Дополнительные поля отчета (2-6, 8-10)
+                addReportField(
+                    document,
+                    "2.",
+                    reportData.field2_excursions.ifBlank { "Экскурсии не проводились" })
+                addReportField(
+                    document,
+                    "3.",
+                    reportData.field3_teachers.ifBlank { "Салихова М.А., Дружинская Е.В., Зайдуллина С. Г., Кондратьев Д.В., Мурзина Г.Р." })
+                addReportField(
+                    document,
+                    "4.",
+                    reportData.field4_absentStudents.ifBlank { "Все студенты прошли практику" })
+                addReportField(
+                    document,
+                    "5.",
+                    reportData.field5_additionalInfo.ifBlank { "Дополнительных сведений нет" })
+                addReportField(
+                    document,
+                    "6.",
+                    reportData.field6_preliminaryEvents.ifBlank { "Проведены собрания со студентами до начала практики. При необходимости были проведены инструктажи по технике безопасности" })
+
+                // 7. Таблица результатов защиты
+                val resultsParagraph = document.createParagraph()
+                val resultsRun = resultsParagraph.createRun()
+                resultsRun.setText("7. Результаты защиты отчетов по практике:")
+                resultsRun.setFontSize(14)
+                resultsRun.setBold(false)
+                resultsRun.setFontFamily("Times New Roman")
+
+                // Таблица результатов
+                val resultsTable = document.createTable()
+                resultsTable.width = 10000
+
+                // Настраиваем свойства таблицы результатов
+                val ctTblResults = resultsTable.ctTbl
+                val tblPrResults = ctTblResults.tblPr ?: ctTblResults.addNewTblPr()
+                val tblWResults = tblPrResults.tblW ?: tblPrResults.addNewTblW()
+                tblWResults.type =
+                    org.openxmlformats.schemas.wordprocessingml.x2006.main.STTblWidth.DXA
+                tblWResults.w = java.math.BigInteger.valueOf(10000)
+                val tblLayoutResults = tblPrResults.tblLayout ?: tblPrResults.addNewTblLayout()
+                tblLayoutResults.type =
+                    org.openxmlformats.schemas.wordprocessingml.x2006.main.STTblLayoutType.FIXED
+
+                // Заголовок таблицы результатов
+                val resultsHeaderRow = resultsTable.getRow(0)
+
+                // Ширины колонок для таблицы результатов 
+                val resultsColumnWidths = intArrayOf(
+                    2000,  // Группа
+                    1500,  // Количество студентов
+                    1500,  // отлично
+                    1500,  // хорошо  
+                    1500,  // удовлетворительно
+                    2000   // Не защитили в срок
+                )
+
+                val resultsHeaders = listOf(
+                    "Группа",
+                    "Количество студентов",
+                    "Из них с оценкой",
+                    "",
+                    "",
+                    "Не защитили в срок"
+                )
+
+                // Добавляем недостающие ячейки
+                while (resultsHeaderRow.tableCells.size < resultsHeaders.size) {
+                    resultsHeaderRow.addNewTableCell()
+                }
+
+                resultsHeaders.forEachIndexed { index, header ->
+                    val cell = resultsHeaderRow.getCell(index)
+
+                    // Устанавливаем ширину ячейки
+                    val ctTc = cell.ctTc
+                    val tcPr = ctTc.tcPr ?: ctTc.addNewTcPr()
+                    val tcW = tcPr.tcW ?: tcPr.addNewTcW()
+                    tcW.type = org.openxmlformats.schemas.wordprocessingml.x2006.main.STTblWidth.DXA
+                    tcW.w = java.math.BigInteger.valueOf(resultsColumnWidths[index].toLong())
+
+                    // Заполняем содержимое
+                    cell.removeParagraph(0)
+                    val p = cell.addParagraph()
+                    p.alignment = org.apache.poi.xwpf.usermodel.ParagraphAlignment.CENTER
+                    val run = p.createRun()
+                    run.setText(header)
+                    run.setFontSize(14)
+                    run.setBold(false)
+                    run.setFontFamily("Times New Roman")
+                }
+
+                // Подзаголовки для оценок
+                val subHeaderRow = resultsTable.createRow()
+                val subHeaders = listOf("", "", "отлично", "хорошо", "удовлетворительно", "")
+
+                subHeaders.forEachIndexed { index, header ->
+                    val cell = subHeaderRow.getCell(index)
+
+                    // Устанавливаем ширину ячейки для подзаголовков
+                    val ctTc = cell.ctTc
+                    val tcPr = ctTc.tcPr ?: ctTc.addNewTcPr()
+                    val tcW = tcPr.tcW ?: tcPr.addNewTcW()
+                    tcW.type = org.openxmlformats.schemas.wordprocessingml.x2006.main.STTblWidth.DXA
+                    tcW.w = java.math.BigInteger.valueOf(resultsColumnWidths[index].toLong())
+
+                    cell.removeParagraph(0)
+                    val p = cell.addParagraph()
+                    p.alignment = org.apache.poi.xwpf.usermodel.ParagraphAlignment.CENTER
+                    val run = p.createRun()
+                    run.setText(header)
+                    run.setFontSize(14)
+                    run.setBold(false)
+                    run.setFontFamily("Times New Roman")
+                }
+
+
+                // Данные результатов по группам
+                groupStatistics.forEach { (groupName, stats) ->
+                    val row = resultsTable.createRow()
+                    val values = listOf(
+                        groupName,
+                        stats.totalStudents.toString(),
+                        stats.excellentGrades.toString(),
+                        stats.goodGrades.toString(),
+                        stats.satisfactoryGrades.toString(),
+                        stats.notDefended.toString()
+                    )
+
+                    values.forEachIndexed { index, value ->
+                        val cell = row.getCell(index)
+
+                        // Устанавливаем ширину ячейки для данных результатов
+                        val ctTc = cell.ctTc
+                        val tcPr = ctTc.tcPr ?: ctTc.addNewTcPr()
+                        val tcW = tcPr.tcW ?: tcPr.addNewTcW()
+                        tcW.type =
+                            org.openxmlformats.schemas.wordprocessingml.x2006.main.STTblWidth.DXA
+                        tcW.w = java.math.BigInteger.valueOf(resultsColumnWidths[index].toLong())
+
+                        cell.removeParagraph(0)
+                        val p = cell.addParagraph()
+                        val run = p.createRun()
+                        run.setText(value)
+                        run.setFontSize(14)
+                        run.setBold(false)
+                        run.setFontFamily("Times New Roman")
+                    }
+                }
+
+                // Завершающие поля
+                document.createParagraph()
+                addReportField(
+                    document,
+                    "8.",
+                    reportData.field8_shortcomings.ifBlank { "не выявлено" })
+                addReportField(
+                    document,
+                    "9.",
+                    reportData.field9_improvements.ifBlank { "автоматизировать работу по оформлению договоров, направлений, приказов, всех видов отчетов" })
+                addReportField(
+                    document,
+                    "10.",
+                    reportData.field10_conclusion.ifBlank { "Считаем, что все цели и задачи были выполнены" })
+
+                // Сохраняем документ
+                FileOutputStream(outputFile).use { fos ->
+                    document.write(fos)
+                }
+            }
+            true
+        } catch (e: Exception) {
+            println("❌ Ошибка при создании отчета: ${e.message}")
+            e.printStackTrace()
+            false
+        }
+    }
+
+    /**
+     * Добавляет поле отчета с номером
+     */
+    private fun addReportField(document: XWPFDocument, number: String, text: String) {
+        val paragraph = document.createParagraph()
+        val run = paragraph.createRun()
+        run.setText("$number $text")
+        run.setFontSize(14)
+        run.setBold(false)
+        run.setFontFamily("Times New Roman")
     }
 
     /**

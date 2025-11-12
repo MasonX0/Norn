@@ -3,6 +3,8 @@ package ru.bpo.norn.jwmMain.screens.topnavbarscreens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.MaterialTheme
@@ -23,7 +25,10 @@ fun DestinationScreen(viewModel: NornViewModel) {
     var isLoading by remember { mutableStateOf(false) }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(15.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(15.dp)
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(15.dp)
     ){
         Text(

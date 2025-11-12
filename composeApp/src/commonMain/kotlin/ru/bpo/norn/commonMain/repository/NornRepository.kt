@@ -43,13 +43,18 @@ class NornRepository {
     }
 
     fun updateGroupStudents(groupName: String, students: List<Student>) {
+        println("🔄 [Repository] Обновление студентов в группе: $groupName")
         val currentGroups = _groups.value.toMutableList()
         val groupIndex = currentGroups.indexOfFirst { it.name == groupName }
 
         if (groupIndex != -1) {
             val existingGroup = currentGroups[groupIndex]
+            println("📋 [Repository] Найдена группа: ${existingGroup.name}, было студентов: ${existingGroup.students.size}")
             currentGroups[groupIndex] = existingGroup.copy(students = students)
             _groups.value = currentGroups
+            println("✅ [Repository] Группа обновлена, стало студентов: ${students.size}")
+        } else {
+            println("❌ [Repository] Группа не найдена: $groupName")
         }
     }
 

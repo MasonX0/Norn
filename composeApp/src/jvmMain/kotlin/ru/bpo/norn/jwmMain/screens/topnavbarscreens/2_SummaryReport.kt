@@ -36,7 +36,10 @@ fun SummaryReport(viewModel: NornViewModel) {
     }
 
     Row(
-        modifier = Modifier.fillMaxSize().padding(15.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(15.dp)
+            .verticalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(15.dp)
     ) {
         // Левая часть - основная таблица и управление
@@ -64,7 +67,7 @@ fun SummaryReport(viewModel: NornViewModel) {
 
             // Таблица статистики
             LazyColumn(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.height(400.dp), 
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 item {
@@ -85,63 +88,40 @@ fun SummaryReport(viewModel: NornViewModel) {
             ) {
                 Button(
                     onClick = {
-                        val fileChooser = JFileChooser().apply {
-                            currentDirectory = File(System.getProperty("user.home"), "Desktop")
-                            dialogTitle = "Выберите шаблон документа"
-                            addChoosableFileFilter(
-                                FileNameExtensionFilter(
-                                    "Word документы (*.docx)",
-                                    "docx"
-                                )
-                            )
-                            fileFilter = FileNameExtensionFilter("Word документы", "docx")
-                        }
-
-                        if (fileChooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
-                            viewModel.selectReportFile(fileChooser.selectedFile)
-                        }
+                        val reportData = summaryReportData
+                        val groupStatistics = viewModel.getGroupStatistics()
+                        viewModel.generateSummaryReportWithoutTemplate(reportData, groupStatistics)
                     },
-                    colors = ButtonColors(
-                        containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                        disabledContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                    ),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Выбрать шаблон\nWord документа")
+                    Text("📄 Сгенерировать отчет")
                 }
+            }
 
-                Button(
-                    onClick = {
-                        isLoading = true
-                        generationResult = null
-                        try {
-                            val templateFile = reportFile
-                            if (templateFile != null) {
-                                val success = viewModel.generateSummaryReport(
-                                    templateFile,
-                                    summaryReportData,
-                                    groupStatistics
-                                )
-                                generationResult = if (success) {
-                                    "✅ Отчет успешно создан в той же папке!"
-                                } else {
-                                    "❌ Ошибка при создании отчета, закройте используемые word файлы!"
-                                }
-                            } else {
-                                generationResult = "⚠️ Сначала выберите шаблон документа"
-                            }
-                        } catch (e: Exception) {
-                            generationResult = "❌ Исключение: ${e.message}"
-                            e.printStackTrace()
-                        } finally {
-                            isLoading = false
+            // Статус генерации документа
+            val documentStatus by viewModel.documentGenerationStatus.collectAsState()
+            if (documentStatus.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = when {
+                            documentStatus.startsWith("✅") -> Color(0xFF4CAF50).copy(alpha = 0.1f)
+                            documentStatus.startsWith("❌") -> Color(0xFFF44336).copy(alpha = 0.1f)
+                            else -> MaterialTheme.colorScheme.surfaceVariant
                         }
-                    },
-                    enabled = reportFile != null && !isLoading
+                    )
                 ) {
-                    Text(if (isLoading) "Генерация..." else "Сгенерировать отчет")
+                    Text(
+                        text = documentStatus,
+                        modifier = Modifier.padding(12.dp),
+                        color = when {
+                            documentStatus.startsWith("✅") -> Color(0xFF2E7D32)
+                            documentStatus.startsWith("❌") -> Color(0xFFD32F2F)
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        style = MaterialTheme.typography.bodyMedium
+                    )
                 }
             }
 
@@ -151,19 +131,42 @@ fun SummaryReport(viewModel: NornViewModel) {
                 horizontalAlignment = Alignment.Start
             ) {
                 Text(
-                    "Состояние приложения:",
+                    "Информация о генерации:",
                     style = MaterialTheme.typography.titleMedium
                 )
 
-                Text("Шаблон: ${reportFile?.name ?: "не выбран"}")
-                reportFile?.let { file ->
-                    Text("Путь: ${file.absolutePath}", fontSize = 12.sp)
+                val totalStudents = groupStatistics.values.sumOf { it.totalStudents }
+                val totalGroups = groupStatistics.size
+
+                Text("Загружено групп: $totalGroups")
+                Text("Всего студентов: $totalStudents")
+
+                if (totalGroups > 0) {
+                    Text(
+                        "✅ Готов к генерации отчета",
+                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                } else {
+                    Text(
+                        "⚠️ Загрузите данные студентов для генерации",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
                 }
+
+                Text(
+                    "💾 Отчет будет сохранен: Desktop/Сводный_отчет_по_практике.docx",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
 
                 generationResult?.let { result ->
                     Text(
                         result,
-                        style = MaterialTheme.typography.bodyMedium
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (result.contains("✅")) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.error
                     )
                 }
 

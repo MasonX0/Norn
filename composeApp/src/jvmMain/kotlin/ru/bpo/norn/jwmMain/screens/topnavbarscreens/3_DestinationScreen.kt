@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import ru.bpo.norn.jwmMain.viewmodel.NornViewModel
 import javax.swing.JFileChooser
 import javax.swing.filechooser.FileNameExtensionFilter
@@ -27,6 +28,9 @@ fun DestinationScreen(viewModel: NornViewModel) {
     val groups by viewModel.groups.collectAsState()
     val selectedGroup by viewModel.selectedGroupForDirections.collectAsState()
     val outputFolder by viewModel.directionsOutputFolder.collectAsState()
+    val dateOfDirectionIssue by viewModel.dateOfDirectionIssue.collectAsState()
+    val dateOfTaskReceived by viewModel.dateOfTaskReceived.collectAsState()
+    val dateOfDepartmentReview by viewModel.dateOfDepartmentReview.collectAsState()
 
     Column(
         modifier = Modifier
@@ -189,74 +193,78 @@ fun DestinationScreen(viewModel: NornViewModel) {
         }
 
         // Выбор папки для сохранения
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant
-            )
+        Button(
+            onClick = {
+                val folderChooser = JFileChooser().apply {
+                    fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
+                    dialogTitle = "Выберите папку для сохранения направлений"
+                }
+                
+                val result = folderChooser.showOpenDialog(null)
+                if (result == JFileChooser.APPROVE_OPTION) {
+                    viewModel.selectDirectionsOutputFolder(folderChooser.selectedFile)
+                }
+            },
+            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
         ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
+            Text("📂 Выбрать папку для сохранения")
+        }
+
+        outputFolder?.let { outputFolder ->
+            Text(
+                "Выбранная папка: ${outputFolder.absolutePath}",
+                fontSize = 12.sp,
+                color = Color.Green,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+        }
+
+        // Поля для ввода дат (общие для всей группы)
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5))
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    "📂 Папка для сохранения:",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    "📅 Даты для направлений (общие для всей группы)",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 12.dp)
                 )
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Button(
-                        onClick = {
-                            val folderChooser = JFileChooser().apply {
-                                fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
-                                dialogTitle = "Выберите папку для сохранения направлений"
-                                currentDirectory = File(System.getProperty("user.home"), "Desktop")
-                            }
+                // Дата выдачи направления
+                Text("Дата выдачи направления (dataIaV):", fontSize = 12.sp)
+                TextField(
+                    value = dateOfDirectionIssue,
+                    onValueChange = viewModel::updateDateOfDirectionIssue,
+                    placeholder = { Text("Например: 04.04.2025") },
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    singleLine = true
+                )
 
-                            if (folderChooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
-                                viewModel.selectDirectionsOutputFolder(folderChooser.selectedFile)
-                            }
-                        },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("📁 Выбрать папку")
-                    }
+                Spacer(modifier = Modifier.height(8.dp))
 
-                    if (outputFolder != null) {
-                        Button(
-                            onClick = { viewModel.selectDirectionsOutputFolder(null) },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.error
-                            )
-                        ) {
-                            Text("✖")
-                        }
-                    }
-                }
+                // Дата получения индивидуального задания
+                Text("Дата получения индивидуального задания (dataIaP):", fontSize = 12.sp)
+                TextField(
+                    value = dateOfTaskReceived,
+                    onValueChange = viewModel::updateDateOfTaskReceived,
+                    placeholder = { Text("Например: 04.04.2025") },
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    singleLine = true
+                )
 
-                if (outputFolder != null) {
-                    Text(
-                        "Выбрана папка: ${outputFolder!!.name}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        "Путь: ${outputFolder!!.absolutePath}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                } else {
-                    Text(
-                        "⚠️ Выберите папку для сохранения документов",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Дата отзыва руководителя от кафедры
+                Text("Дата отзыва руководителя от кафедры (dataOtz):", fontSize = 12.sp)
+                TextField(
+                    value = dateOfDepartmentReview,
+                    onValueChange = viewModel::updateDateOfDepartmentReview,
+                    placeholder = { Text("Например: 16.05.2025") },
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    singleLine = true
+                )
             }
         }
 

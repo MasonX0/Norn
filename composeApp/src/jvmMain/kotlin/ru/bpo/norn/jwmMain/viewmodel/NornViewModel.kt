@@ -114,6 +114,16 @@ class NornViewModel {
     private val _directionsOutputFolder = MutableStateFlow<File?>(null)
     val directionsOutputFolder: StateFlow<File?> = _directionsOutputFolder.asStateFlow()
 
+    // Даты для направлений (общие для всей группы)
+    private val _dateOfDirectionIssue = MutableStateFlow("")
+    val dateOfDirectionIssue: StateFlow<String> = _dateOfDirectionIssue.asStateFlow()
+
+    private val _dateOfTaskReceived = MutableStateFlow("")
+    val dateOfTaskReceived: StateFlow<String> = _dateOfTaskReceived.asStateFlow()
+
+    private val _dateOfDepartmentReview = MutableStateFlow("")
+    val dateOfDepartmentReview: StateFlow<String> = _dateOfDepartmentReview.asStateFlow()
+
     fun selectDirectionTemplateFile(file: File?) {
         _directionTemplateFile.value = file
     }
@@ -124,6 +134,18 @@ class NornViewModel {
 
     fun selectDirectionsOutputFolder(folder: File?) {
         _directionsOutputFolder.value = folder
+    }
+
+    fun updateDateOfDirectionIssue(date: String) {
+        _dateOfDirectionIssue.value = date
+    }
+
+    fun updateDateOfTaskReceived(date: String) {
+        _dateOfTaskReceived.value = date
+    }
+
+    fun updateDateOfDepartmentReview(date: String) {
+        _dateOfDepartmentReview.value = date
     }
 
     // 3.4 Order файлы
@@ -1155,10 +1177,10 @@ class NornViewModel {
             "{gradeForPractice}" to (student.gradeForPractice.ifBlank { "NULL" }),
             "{practiceForm}" to (student.practiceForm.ifBlank { "NULL" }),
             "{formOfStudy}" to (student.formOfStudy.ifBlank { "NULL" }),
-            // Даты - в модели Student их нет, поэтому пишем NULL
-            "{dataIaV}" to "NULL",
-            "{dataIaP}" to "NULL",
-            "{dataOtz}" to "NULL"
+            // Даты - используем общие даты для всей группы
+            "{dataIaV}" to (_dateOfDirectionIssue.value.ifBlank { "NULL" }),
+            "{dataIaP}" to (_dateOfTaskReceived.value.ifBlank { "NULL" }),
+            "{dataOtz}" to (_dateOfDepartmentReview.value.ifBlank { "NULL" })
         )
 
         var result = text
@@ -1169,27 +1191,90 @@ class NornViewModel {
     }
 
     /**
-     * Заменяет плейсхолдеры в параграфе Word документа
+     * Заменяет плейсхолдеры в параграфе Word документа с сохранением подчеркивания
      */
-    private fun replaceInParagraph(
-        paragraph: XWPFParagraph,
-        student: Student,
-        directionNumber: Int = 1
-    ) {
+    private fun replaceInParagraph(paragraph: XWPFParagraph, student: Student, directionNumber: Int = 1) {
         val text = paragraph.text
         if (text.contains("{") && text.contains("}")) {
             val newText = replacePlaceholdersInText(text, student, directionNumber)
 
-            // Удаляем все runs
-            while (paragraph.runs.isNotEmpty()) {
-                paragraph.removeRun(0)
-            }
+            // Если текст изменился, заменяем его
+            if (newText != text) {
+                // Сохраняем информацию о подчеркивании для каждого плейсхолдера ДО удаления runs
+                val placeholderPattern = Regex("\\{[^}]+\\}")
+                val placeholders = placeholderPattern.findAll(text).toList()
+                // Собираем позиционный список подчеркиваний для плейсхолдеров
+                val underlineInfo = mutableMapOf<String, Boolean>()
+                for (match in placeholders) {
+                    val placeholder = match.value
+                    val isUnderlined =
+                        isTextUnderlined(paragraph, match.range.first, match.range.last + 1)
+                    underlineInfo[placeholder] = isUnderlined
+                }
 
-            // Создаем новый run с замененным текстом
-            val newRun = paragraph.createRun()
-            newRun.setText(newText)
-            newRun.setFontSize(12)
-            newRun.setFontFamily("Times New Roman")
+                // Удаляем все runs
+                while (paragraph.runs.isNotEmpty()) {
+                    paragraph.removeRun(0)
+                }
+
+                // Простая замена с сохранением подчеркивания для плейсхолдеров
+                var origIndex = 0
+                var newIndex = 0
+                while (origIndex < text.length && newIndex < newText.length) {
+                    // Ищем следующий плейсхолдер в оригинальном тексте
+                    val nextPlaceholder = placeholderPattern.find(text, origIndex)
+                    if (nextPlaceholder != null && nextPlaceholder.range.first == origIndex) {
+                        val placeholder = nextPlaceholder.value
+                        val replacementValue =
+                            replacePlaceholdersInText(placeholder, student, directionNumber)
+                        val isUnderlined = underlineInfo[placeholder] ?: false
+
+                        if (replacementValue.isNotEmpty()) {
+                            val run = paragraph.createRun()
+                            run.setText(replacementValue)
+                            run.setFontSize(12)
+                            run.setFontFamily("Times New Roman")
+                            if (isUnderlined) {
+                                run.setUnderline(org.apache.poi.xwpf.usermodel.UnderlinePatterns.SINGLE)
+                            }
+                        }
+
+                        origIndex = nextPlaceholder.range.last + 1
+                        newIndex += replacementValue.length
+                    } else {
+                        val nextPlaceholderStart =
+                            placeholderPattern.find(text, origIndex)?.range?.first ?: text.length
+                        val normalTextLength = nextPlaceholderStart - origIndex
+
+                        if (normalTextLength > 0 && newIndex < newText.length) {
+                            val normalText = newText.substring(
+                                newIndex,
+                                minOf(newIndex + normalTextLength, newText.length)
+                            )
+                            if (normalText.isNotEmpty()) {
+                                val run = paragraph.createRun()
+                                run.setText(normalText)
+                                run.setFontSize(12)
+                                run.setFontFamily("Times New Roman")
+                            }
+                            newIndex += normalText.length
+                        }
+
+                        origIndex = nextPlaceholderStart
+                    }
+                }
+
+                // Добавляем оставшийся текст, если есть
+                if (newIndex < newText.length) {
+                    val remainingText = newText.substring(newIndex)
+                    if (remainingText.isNotEmpty()) {
+                        val run = paragraph.createRun()
+                        run.setText(remainingText)
+                        run.setFontSize(12)
+                        run.setFontFamily("Times New Roman")
+                    }
+                }
+            }
         }
     }
 

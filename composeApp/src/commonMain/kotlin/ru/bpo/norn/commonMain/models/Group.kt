@@ -66,7 +66,9 @@ data class Group(
             excellentGrades = getCountOfStudentsWithGrade("отлично"),
             goodGrades = getCountOfStudentsWithGrade("хорошо"),
             satisfactoryGrades = getCountOfStudentsWithGrade("удовлетворительно"),
-            notDefended = getCountOfStudentsWithGrade("не защитили в срок"),
+            notDefended = getCountOfStudentsWithGrade("не защитили в срок") + getCountOfStudentsWithGrade(
+                "неудов"
+            ),
             practiceStartDate = practiceStartDate,
             practiceEndDate = practiceEndDate,
             practiceType = practiceType

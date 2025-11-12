@@ -422,6 +422,16 @@ class NornViewModel {
             _selectedGroup.value = updatedGroup
         }
     }
+
+    fun updateGroupStudents(groupName: String, students: List<Student>) {
+        println("🔄 [ViewModel] Обновление студентов в группе: $groupName")
+        repository.updateGroupStudents(groupName, students)
+        // Обновляем выбранную группу если она та же самая
+        if (_selectedGroup.value?.name == groupName) {
+            _selectedGroup.value = repository.getGroupByName(groupName)
+        }
+        println("✅ [ViewModel] Студенты обновлены, всего: ${students.size}")
+    }
     /**
      * Парсит студентов из Excel файла
      */

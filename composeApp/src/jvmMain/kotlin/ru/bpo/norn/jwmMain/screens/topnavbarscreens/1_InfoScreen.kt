@@ -25,6 +25,7 @@ fun InfoScreen(viewModel: NornViewModel) {
     val showEditDialog by viewModel.showStudentEditDialog.collectAsState()
     val enterprisesList by viewModel.enterprisesList.collectAsState()
     var showGroupDialog by remember { mutableStateOf(false) }
+    var showGroupEditDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -97,9 +98,21 @@ fun InfoScreen(viewModel: NornViewModel) {
                             Text("🎓 Группа: ${group.name}", style = MaterialTheme.typography.titleMedium)
                             Text("Студентов: ${group.students.size}")
                             Text("Направление: ${group.nameOfDirection}")
+                            Text("Код направления: ${group.codeOfDirection}")
                         }
-                        Button(onClick = { showGroupDialog = true }) {
-                            Text("📝 Заполнить для группы")
+                        Column {
+                            Button(onClick = { showGroupDialog = true }) {
+                                Text("📝 Заполнить для группы")
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Button(
+                                onClick = { showGroupEditDialog = true },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.secondary
+                                )
+                            ) {
+                                Text("⚙️ Изменить группу")
+                            }
                         }
                     }
                 }
@@ -175,6 +188,16 @@ fun InfoScreen(viewModel: NornViewModel) {
         }
     }
 
+    if (showGroupEditDialog) {
+        selectedGroup?.let { group ->
+            GroupParametersEditDialog(
+                currentGroup = group,
+                viewModel = viewModel,
+                onDismiss = { showGroupEditDialog = false }
+            )
+        }
+    }
+
     if (showEditDialog) {
         StudentEditDialog(
             student = selectedStudent,
@@ -231,6 +254,8 @@ private fun GroupEditDialog(
     var isCodeOfSpecialitySet by remember { mutableStateOf(false) }
     var isPracticeFormSet by remember { mutableStateOf(false) }
     var isFormOfStudySet by remember { mutableStateOf(false) }
+    var isForeignSet by remember { mutableStateOf(false) }
+    var isPaidPracticeSet by remember { mutableStateOf(false) }
     var isGradeForPracticeSet by remember { mutableStateOf(false) }
 
     AlertDialog(
@@ -327,9 +352,15 @@ private fun GroupEditDialog(
                     isFormOfStudySet = true
                 },
                 isForeign = isForeign,
-                onIsForeignChange = { isForeign = it },
+                onIsForeignChange = {
+                    isForeign = it
+                    isForeignSet = true
+                },
                 isPaidPractice = isPaidPractice,
-                onIsPaidPracticeChange = { isPaidPractice = it },
+                onIsPaidPracticeChange = {
+                    isPaidPractice = it
+                    isPaidPracticeSet = true
+                },
                 gradeForPractice = gradeForPractice,
                 onGradeForPracticeChange = {
                     gradeForPractice = it
@@ -352,34 +383,35 @@ private fun GroupEditDialog(
                 viewModel.updateGroupData(updatedGroup)
 
                 // Обновляем всех студентов в группе
-                currentGroup.students.forEach { student ->
-                    viewModel.updateStudentData(
-                        Student(
-                            name = student.name,
-                            course = student.course,
-                            codeOfDirection = if (isCodeOfDirectionSet) codeOfDirection else student.codeOfDirection,
-                            nameOfDirection = if (isNameOfDirectionSet) nameOfDirection else student.nameOfDirection,
-                            group = student.group,
-                            isForeign = isForeign,
-                            gradeForPractice = if (isGradeForPracticeSet) gradeForPractice else student.gradeForPractice,
-                            nameOfPracticeBase = if (isNameOfPracticeBaseSet) nameOfPracticeBase else student.nameOfPracticeBase,
-                            typeOfPractice = if (isTypeOfPracticeSet) typeOfPractice else student.typeOfPractice,
-                            periodOfPractice = if (isPeriodOfPracticeSet) periodOfPractice else student.periodOfPractice,
-                            practiceForm = if (isPracticeFormSet) practiceForm else student.practiceForm,
-                            formOfStudy = if (isFormOfStudySet) formOfStudy else student.formOfStudy,
-                            isPaidPractice = isPaidPractice,
-                            cityOfPractice = if (isCityOfPracticeSet) cityOfPractice else student.cityOfPractice,
-                            nameOfSpeciality = if (isNameOfSpecialitySet) nameOfSpeciality else student.nameOfSpeciality,
-                            codeOfSpeciality = if (isCodeOfSpecialitySet) codeOfSpeciality else student.codeOfSpeciality,
-                            headOfPracticeFromDepartment = if (isHeadOfPracticeFromDepartmentSet) headOfPracticeFromDepartment else student.headOfPracticeFromDepartment,
-                            headOfPracticeFromPracticeBase = if (isHeadOfPracticeFromPracticeBaseSet) headOfPracticeFromPracticeBase else student.headOfPracticeFromPracticeBase,
-                            postOfHeadOfPracticeFromPracticeBase = if (isPostOfHeadOfPracticeFromPracticeBaseSet) postOfHeadOfPracticeFromPracticeBase else student.postOfHeadOfPracticeFromPracticeBase,
-                            postOfHeadOfPracticeFromDepartment = if (isPostOfHeadOfPracticeFromDepartmentSet) postOfHeadOfPracticeFromDepartment else student.postOfHeadOfPracticeFromDepartment,
-                            directorName = if (isDirectorNameSet) directorName else student.directorName,
-                            withPayment = isPaidPractice
-                        )
+                val updatedStudents = currentGroup.students.map { student ->
+                    Student(
+                        name = student.name,
+                        course = student.course,
+                        codeOfDirection = if (isCodeOfDirectionSet) codeOfDirection else student.codeOfDirection,
+                        nameOfDirection = if (isNameOfDirectionSet) nameOfDirection else student.nameOfDirection,
+                        group = student.group,
+                        isForeign = if (isForeignSet) isForeign else student.isForeign,
+                        gradeForPractice = if (isGradeForPracticeSet) gradeForPractice else student.gradeForPractice,
+                        nameOfPracticeBase = if (isNameOfPracticeBaseSet) nameOfPracticeBase else student.nameOfPracticeBase,
+                        typeOfPractice = if (isTypeOfPracticeSet) typeOfPractice else student.typeOfPractice,
+                        periodOfPractice = if (isPeriodOfPracticeSet) periodOfPractice else student.periodOfPractice,
+                        practiceForm = if (isPracticeFormSet) practiceForm else student.practiceForm,
+                        formOfStudy = if (isFormOfStudySet) formOfStudy else student.formOfStudy,
+                        isPaidPractice = if (isPaidPracticeSet) isPaidPractice else student.isPaidPractice,
+                        cityOfPractice = if (isCityOfPracticeSet) cityOfPractice else student.cityOfPractice,
+                        nameOfSpeciality = if (isNameOfSpecialitySet) nameOfSpeciality else student.nameOfSpeciality,
+                        codeOfSpeciality = if (isCodeOfSpecialitySet) codeOfSpeciality else student.codeOfSpeciality,
+                        headOfPracticeFromDepartment = if (isHeadOfPracticeFromDepartmentSet) headOfPracticeFromDepartment else student.headOfPracticeFromDepartment,
+                        headOfPracticeFromPracticeBase = if (isHeadOfPracticeFromPracticeBaseSet) headOfPracticeFromPracticeBase else student.headOfPracticeFromPracticeBase,
+                        postOfHeadOfPracticeFromPracticeBase = if (isPostOfHeadOfPracticeFromPracticeBaseSet) postOfHeadOfPracticeFromPracticeBase else student.postOfHeadOfPracticeFromPracticeBase,
+                        postOfHeadOfPracticeFromDepartment = if (isPostOfHeadOfPracticeFromDepartmentSet) postOfHeadOfPracticeFromDepartment else student.postOfHeadOfPracticeFromDepartment,
+                        directorName = if (isDirectorNameSet) directorName else student.directorName,
+                        withPayment = if (isPaidPracticeSet) isPaidPractice else student.withPayment
                     )
                 }
+
+                // Обновляем студентов в группе одним вызовом
+                viewModel.updateGroupStudents(currentGroup.name, updatedStudents)
                 onDismiss()
             }) {
                 Text("Применить ко всей группе")
@@ -388,7 +420,104 @@ private fun GroupEditDialog(
     )
 }
 
-// StudentEditDialog и EditFormContent остаются без изменений, так как они уже работают со Student
+@Composable
+private fun GroupParametersEditDialog(
+    currentGroup: Group,
+    viewModel: NornViewModel,
+    onDismiss: () -> Unit
+) {
+    var groupName by remember { mutableStateOf(currentGroup.name) }
+    var codeOfDirection by remember { mutableStateOf(currentGroup.codeOfDirection) }
+    var nameOfDirection by remember { mutableStateOf(currentGroup.nameOfDirection) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("⚙️ Редактировать параметры группы") },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = groupName,
+                    onValueChange = { groupName = it },
+                    label = { Text("Название группы") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = codeOfDirection,
+                    onValueChange = { codeOfDirection = it },
+                    label = { Text("Код направления") },
+                    placeholder = { Text("09.03.01") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = nameOfDirection,
+                    onValueChange = { nameOfDirection = it },
+                    label = { Text("Название направления") },
+                    placeholder = { Text("Информатика и вычислительная техника") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    "💡 Изменения применятся к группе и всем её студентам",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                // Создаем обновленную группу
+                val updatedGroup = currentGroup.copy(
+                    name = groupName,
+                    codeOfDirection = codeOfDirection,
+                    nameOfDirection = nameOfDirection
+                )
+
+                // Обновляем группу
+                viewModel.updateGroupData(updatedGroup)
+
+                // Обновляем всех студентов в группе с новыми данными направления
+                currentGroup.students.forEach { student ->
+                    val updatedStudent = Student(
+                        name = student.name,
+                        course = student.course,
+                        codeOfDirection = codeOfDirection,
+                        nameOfDirection = nameOfDirection,
+                        group = groupName,
+                        isForeign = student.isForeign,
+                        gradeForPractice = student.gradeForPractice,
+                        nameOfPracticeBase = student.nameOfPracticeBase,
+                        typeOfPractice = student.typeOfPractice,
+                        periodOfPractice = student.periodOfPractice,
+                        formOfStudy = student.formOfStudy,
+                        withPayment = student.withPayment,
+                        isPaidPractice = student.isPaidPractice,
+                        practiceForm = student.practiceForm,
+                        cityOfPractice = student.cityOfPractice,
+                        nameOfSpeciality = student.nameOfSpeciality,
+                        codeOfSpeciality = student.codeOfSpeciality,
+                        headOfPracticeFromDepartment = student.headOfPracticeFromDepartment,
+                        headOfPracticeFromPracticeBase = student.headOfPracticeFromPracticeBase,
+                        postOfHeadOfPracticeFromPracticeBase = student.postOfHeadOfPracticeFromPracticeBase,
+                        postOfHeadOfPracticeFromDepartment = student.postOfHeadOfPracticeFromDepartment,
+                        directorName = student.directorName
+                    )
+                    viewModel.updateStudentData(updatedStudent)
+                }
+
+                onDismiss()
+            }) {
+                Text("Сохранить изменения")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Отмена")
+            }
+        }
+    )
+}
+
 @Composable
 private fun StudentEditDialog(
     student: Student?,
@@ -596,18 +725,20 @@ private fun EditFormContent(
     var practiceFormExpanded by remember { mutableStateOf(false) }
     var formOfStudyExpanded by remember { mutableStateOf(false) }
     var practicePaymentExpanded by remember { mutableStateOf(false) }
+    var gradeExpanded by remember { mutableStateOf(false) }
 
     // Варианты для выпадающих списков
     val practiceFormOptions = listOf("стационарная", "выездная")
     val formOfStudyOptions = listOf("Бюджетная", "Платная", "Целевая")
     val practicePaymentOptions = listOf("Оплачиваемая", "Неоплачиваемая")
+    val gradeOptions = listOf("отлично", "хорошо", "удовлетворительно", "неудов")
 
     @Composable
     fun fieldColors(value: String): TextFieldColors {
         return if (value.isNotEmpty()) {
             OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant
+                focusedContainerColor = MaterialTheme.colorScheme.background.copy(alpha = 1.0f),
+                unfocusedContainerColor = MaterialTheme.colorScheme.background.copy(alpha = 0.9f)
             )
         } else {
             OutlinedTextFieldDefaults.colors()
@@ -689,13 +820,35 @@ private fun EditFormContent(
                     modifier = Modifier.weight(1f),
                     colors = fieldColors(cityOfPractice)
                 )
-                OutlinedTextField(
-                    value = gradeForPractice,
-                    onValueChange = onGradeForPracticeChange,
-                    label = { Text("Оценка") },
-                    modifier = Modifier.weight(1f),
-                    colors = fieldColors(gradeForPractice)
-                )
+                Box(modifier = Modifier.weight(1f)) {
+                    OutlinedTextField(
+                        modifier = Modifier.fillMaxWidth(),
+                        value = gradeForPractice,
+                        onValueChange = onGradeForPracticeChange,
+                        label = { Text("Оценка") },
+                        trailingIcon = {
+                            TextButton(onClick = { gradeExpanded = !gradeExpanded }) {
+                                Text(if (gradeExpanded) "▲" else "▼")
+                            }
+                        },
+                        colors = fieldColors(gradeForPractice)
+                    )
+                    DropdownMenu(
+                        expanded = gradeExpanded,
+                        onDismissRequest = { gradeExpanded = false },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        gradeOptions.forEach { option ->
+                            DropdownMenuItem(
+                                text = { Text(option) },
+                                onClick = {
+                                    onGradeForPracticeChange(option)
+                                    gradeExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
             }
 
             // Выпадающий список для оплаты практики с возможностью ввода

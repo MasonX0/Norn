@@ -28,7 +28,7 @@ fun StatementsScreen(viewModel: NornViewModel) {
         verticalArrangement = Arrangement.spacedBy(15.dp)
     ) {
         Text(
-            "Загрузите ведомости",
+            "В РАЗРАБОТКЕ",
             color = MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.bodyLarge
         )

@@ -105,7 +105,26 @@ class NornViewModel {
     // (добавьте при необходимости)
 
     // 3.3 Destination файлы
-    // (добавьте при необходимости)
+    private val _directionTemplateFile = MutableStateFlow<File?>(null)
+    val directionTemplateFile: StateFlow<File?> = _directionTemplateFile.asStateFlow()
+
+    private val _selectedGroupForDirections = MutableStateFlow<Group?>(null)
+    val selectedGroupForDirections: StateFlow<Group?> = _selectedGroupForDirections.asStateFlow()
+
+    private val _directionsOutputFolder = MutableStateFlow<File?>(null)
+    val directionsOutputFolder: StateFlow<File?> = _directionsOutputFolder.asStateFlow()
+
+    fun selectDirectionTemplateFile(file: File?) {
+        _directionTemplateFile.value = file
+    }
+
+    fun selectGroupForDirections(group: Group?) {
+        _selectedGroupForDirections.value = group
+    }
+
+    fun selectDirectionsOutputFolder(folder: File?) {
+        _directionsOutputFolder.value = folder
+    }
 
     // 3.4 Order файлы
     private val _orderFile = MutableStateFlow<File?>(null)
@@ -1759,7 +1778,77 @@ class NornViewModel {
     }
 
     /**
-     * Основная функция для генерации документов
+     * Генерирует направления на практику для выбранной группы
+     * Создает отдельный файл для каждого студента используя правильный рабочий метод
      */
+    fun generateDirectionsFromTemplate(): Boolean {
+        return try {
+            val templateFile = _directionTemplateFile.value
+            val selectedGroup = _selectedGroupForDirections.value
+            val outputFolder = _directionsOutputFolder.value
+
+            if (templateFile == null) {
+                _documentGenerationStatus.value = "❌ Не выбран шаблон направления"
+                return false
+            }
+
+            if (selectedGroup == null) {
+                _documentGenerationStatus.value = "❌ Не выбрана группа"
+                return false
+            }
+
+            if (outputFolder == null) {
+                _documentGenerationStatus.value = "❌ Не выбрана папка для сохранения"
+                return false
+            }
+
+            if (selectedGroup.students.isEmpty()) {
+                _documentGenerationStatus.value = "❌ В выбранной группе нет студентов"
+                return false
+            }
+
+            _documentGenerationStatus.value = "🔄 Создание направлений для группы ${selectedGroup.name}..."
+
+            var successCount = 0
+            var failCount = 0
+
+            // Для каждого студента создаем отдельный файл
+            selectedGroup.students.forEachIndexed { index, student ->
+                val fileName = "${student.name.replace(" ", "_")}_Napravlenie.docx"
+                val outputFile = outputFolder.resolve(fileName)
+
+                try {
+                    // Используем рабочий метод для одного студента
+                    val success = replacePlaceholdersInWord(templateFile, student, outputFile)
+                    if (success) {
+                        successCount++
+                        println("✅ Создан документ для студента: ${student.name}")
+                    } else {
+                        failCount++
+                        println("❌ Ошибка создания документа для студента: ${student.name}")
+                    }
+                } catch (e: Exception) {
+                    failCount++
+                    println("❌ Исключение при создании документа для студента ${student.name}: ${e.message}")
+                    e.printStackTrace()
+                }
+            }
+
+            if (failCount == 0) {
+                _documentGenerationStatus.value = "✅ Все направления созданы успешно! ($successCount файлов) в папке: ${outputFolder.absolutePath}"
+                println("✅ Все направления созданы успешно! ($successCount файлов)")
+                true
+            } else {
+                _documentGenerationStatus.value = "⚠️ Создано: $successCount, ошибок: $failCount. Проверьте папку: ${outputFolder.absolutePath}"
+                println("⚠️ Создано: $successCount, ошибок: $failCount")
+                true
+            }
+        } catch (e: Exception) {
+            _documentGenerationStatus.value = "❌ Ошибка: ${e.message}"
+            println("❌ Исключение при создании направлений: ${e.message}")
+            e.printStackTrace()
+            false
+        }
+    }
 }
 

@@ -39,6 +39,7 @@ fun StudentsListScreen(viewModel: NornViewModel) {
     var editedFaculty by remember { mutableStateOf("") }
     var editedGroup by remember { mutableStateOf("") }
     var editedIsPaidPractice by remember { mutableStateOf("") }
+    var editedPracticeForm by remember { mutableStateOf("") }
 
     // Обновляем поля когда выбираем студента
     LaunchedEffect(selectedStudent) {
@@ -49,6 +50,7 @@ fun StudentsListScreen(viewModel: NornViewModel) {
             editedFaculty = student.nameOfDirection
             editedGroup = student.group
             editedIsPaidPractice = if (student.isPaidPractice) "Да" else "Нет"
+            editedPracticeForm = student.practiceForm
         }
     }
 
@@ -363,6 +365,12 @@ fun StudentsListScreen(viewModel: NornViewModel) {
                         label = { Text("Платная практика") },
                         modifier = Modifier.fillMaxWidth()
                     )
+                    OutlinedTextField(
+                        value = editedPracticeForm,
+                        onValueChange = { editedPracticeForm = it },
+                        label = { Text("Форма практики") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             },
             confirmButton = {
@@ -385,6 +393,7 @@ fun StudentsListScreen(viewModel: NornViewModel) {
                                     formOfStudy = editedFundingType,
                                     withPayment = currentStudent.withPayment,
                                     isPaidPractice = editedIsPaidPractice == "Да",
+                                    practiceForm = editedPracticeForm,
                                     cityOfPractice = editedBranch,
                                     nameOfSpeciality = currentStudent.nameOfSpeciality,
                                     codeOfSpeciality = currentStudent.codeOfSpeciality,

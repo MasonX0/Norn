@@ -12,6 +12,7 @@ import ru.bpo.norn.commonMain.models.Student
 import ru.bpo.norn.commonMain.models.Enterprise
 import ru.bpo.norn.commonMain.models.PracticeSupervisor
 import ru.bpo.norn.commonMain.models.SummaryReportData
+import ru.bpo.norn.commonMain.models.OrderData
 import ru.bpo.norn.commonMain.repository.NornRepository
 import viewmodel.Screen
 import java.io.File
@@ -532,6 +533,7 @@ class NornViewModel {
                                         "платн",
                                         ignoreCase = true
                                     ), // Обновлено поле isPaidPractice
+                                    practiceForm = "стационарная",
                                     cityOfPractice = branch.ifBlank { "Уфа" },
                                     nameOfSpeciality = "Технологии искусственного интеллекта",
                                     codeOfSpeciality = "БПО09",
@@ -624,6 +626,14 @@ class NornViewModel {
     private val _documentGenerationStatus = MutableStateFlow("")
     val documentGenerationStatus: StateFlow<String> = _documentGenerationStatus.asStateFlow()
 
+    // ==================== OrderData StateFlow ====================
+    private val _orderData = MutableStateFlow(OrderData())
+    val orderData: StateFlow<OrderData> = _orderData.asStateFlow()
+
+    fun updateOrderData(data: OrderData) {
+        _orderData.value = data
+    }
+
     fun updateSummaryReportData(data: SummaryReportData) {
         _summaryReportData.value = data
     }
@@ -672,8 +682,10 @@ class NornViewModel {
     /**
      * Генерирует приказ по всем загруженным группам с разделением по форме обучения
      */
-    fun generateOrderDocument(): Boolean {
+    fun generateOrderDocument(orderData: OrderData = _orderData.value): Boolean {
         return try {
+            _documentGenerationStatus.value = "🔄 Создание приказа..."
+
             val outputFile =
                 File(System.getProperty("user.home"), "Desktop/Приказ_по_практике.docx")
 
@@ -681,20 +693,24 @@ class NornViewModel {
             val allStudents = repository.groups.value.flatMap { it.students }
 
             if (allStudents.isEmpty()) {
+                _documentGenerationStatus.value = "❌ Нет загруженных студентов для создания приказа"
                 println("❌ Нет загруженных студентов для создания приказа")
                 return false
             }
 
-            val success = createOrderDocument(allStudents, outputFile)
+            val success = createOrderDocument(allStudents, orderData, outputFile)
 
             if (success) {
+                _documentGenerationStatus.value = "✅ Приказ создан: ${outputFile.absolutePath}"
                 println("✅ Приказ создан: ${outputFile.absolutePath}")
                 true
             } else {
+                _documentGenerationStatus.value = "❌ Ошибка при создании приказа"
                 println("❌ Ошибка при создании приказа")
                 false
             }
         } catch (e: Exception) {
+            _documentGenerationStatus.value = "❌ Ошибка: ${e.message}"
             println("❌ Исключение при создании приказа: ${e.message}")
             e.printStackTrace()
             false
@@ -704,7 +720,11 @@ class NornViewModel {
     /**
      * Создает Word документ с приказом, разделенным по формам обучения
      */
-    private fun createOrderDocument(students: List<Student>, outputFile: File): Boolean {
+    private fun createOrderDocument(
+        students: List<Student>,
+        orderData: OrderData,
+        outputFile: File
+    ): Boolean {
         return try {
             // Группируем студентов по форме обучения с улучшенной логикой
             val budgetStudents = students.filter {
@@ -724,7 +744,7 @@ class NornViewModel {
             // Создаем новый документ
             XWPFDocument().use { document ->
                 // Заголовок документа
-                addOrderHeader(document)
+                addOrderHeader(document, orderData)
 
                 var globalIndex = 1
 
@@ -756,7 +776,7 @@ class NornViewModel {
                 }
 
                 // Подписи
-                addOrderFooter(document)
+                addOrderFooter(document, orderData)
 
                 // Сохраняем документ
                 FileOutputStream(outputFile).use { fos ->
@@ -775,30 +795,34 @@ class NornViewModel {
     /**
      * Добавляет заголовок приказа
      */
-    private fun addOrderHeader(document: XWPFDocument) {
-        // Заголовок
+    private fun addOrderHeader(document: XWPFDocument, orderData: OrderData) {
+        // Заголовок справа
         val headerParagraph = document.createParagraph()
-        headerParagraph.alignment = org.apache.poi.xwpf.usermodel.ParagraphAlignment.CENTER
+        headerParagraph.alignment = org.apache.poi.xwpf.usermodel.ParagraphAlignment.RIGHT
         val headerRun = headerParagraph.createRun()
-        headerRun.setText("Проект приказа -4п от _________")
+        headerRun.setText(orderData.headerText.ifBlank { "Проект приказа -4п от _________" })
         headerRun.setFontSize(12)
         headerRun.setFontFamily("Times New Roman")
-        headerRun.isBold = true
+        headerRun.isBold = false
 
         val titleParagraph = document.createParagraph()
         titleParagraph.alignment = org.apache.poi.xwpf.usermodel.ParagraphAlignment.CENTER
         val titleRun = titleParagraph.createRun()
-        titleRun.setText("Об учебной практике (ознакомительной практике)")
+        titleRun.setText(orderData.titleText.ifBlank { "Об учебной практике (ознакомительной практике)" })
         titleRun.setFontSize(12)
         titleRun.setFontFamily("Times New Roman")
-        titleRun.isBold = true
+        titleRun.isBold = false
+
+        // Пустая строка
+        document.createParagraph()
 
         val instituteParagraph = document.createParagraph()
         instituteParagraph.alignment = org.apache.poi.xwpf.usermodel.ParagraphAlignment.CENTER
         val instituteRun = instituteParagraph.createRun()
-        instituteRun.setText("По институту цифровых систем, автоматизации и энергетики процессов")
+        instituteRun.setText(orderData.instituteText.ifBlank { "По институту цифровых систем, автоматизации и энергетики процессов" })
         instituteRun.setFontSize(12)
         instituteRun.setFontFamily("Times New Roman")
+        instituteRun.isBold = false
 
         // Пустая строка
         document.createParagraph()
@@ -814,36 +838,96 @@ class NornViewModel {
         fundingType: String,
         startIndex: Int
     ): Int {
-        // Заголовок секции
+        // Заголовок секции с красной строкой
         val sectionParagraph = document.createParagraph()
+        sectionParagraph.indentationFirstLine = 250 // 1.25 см красная строка
+        sectionParagraph.indentationLeft = 0 // левая граница на нуле
+
         val sectionRun = sectionParagraph.createRun()
-        sectionRun.setText("$sectionNumber Нижеперечисленных студентов потока БПО09-24 и БПО09и-24 направления 09.03.01 Информатика и вычислительная техника, профиля «Технологии искусственного интеллекта в нефтегазовой отрасли», обучающихся на $fundingType, направить для прохождения практики на следующие базы практик:")
+        sectionRun.setText("$sectionNumber Нижеперечисленных студентов потока БПО09-24 и БПО09и-24 направления 09.03.01 Информатика и вычислительная техника, профиля «Технологии искусственного интеллекта в нефтегазовой отрасли», обучающихся на ")
         sectionRun.setFontSize(12)
         sectionRun.setFontFamily("Times New Roman")
+        sectionRun.isBold = false
+
+        // Добавляем тип обучения жирным и подчеркнутым
+        val fundingRun = sectionParagraph.createRun()
+        fundingRun.setText(fundingType)
+        fundingRun.setFontSize(12)
+        fundingRun.setFontFamily("Times New Roman")
+        fundingRun.isBold = true
+        fundingRun.setUnderline(org.apache.poi.xwpf.usermodel.UnderlinePatterns.SINGLE)
+
+        // Завершение предложения
+        val endRun = sectionParagraph.createRun()
+        endRun.setText(", направить для прохождения практики на следующие базы практик:")
+        endRun.setFontSize(12)
+        endRun.setFontFamily("Times New Roman")
+        endRun.isBold = false
 
         // Создаем таблицу
         val table = document.createTable()
         table.width = 10000
 
+        // Настраиваем свойства таблицы приказа
+        val ctTbl = table.ctTbl
+        val tblPr = ctTbl.tblPr ?: ctTbl.addNewTblPr()
+        val tblW = tblPr.tblW ?: tblPr.addNewTblW()
+        tblW.type = org.openxmlformats.schemas.wordprocessingml.x2006.main.STTblWidth.DXA
+        tblW.w = java.math.BigInteger.valueOf(10000)
+        val tblLayout = tblPr.tblLayout ?: tblPr.addNewTblLayout()
+        tblLayout.type =
+            org.openxmlformats.schemas.wordprocessingml.x2006.main.STTblLayoutType.FIXED
+
         // Заголовок таблицы
         val headerRow = table.getRow(0)
-        headerRow.getCell(0).setText("№пп")
-        headerRow.addNewTableCell().setText("Ф. И. О. практиканта\n(в именительном падеже)")
-        headerRow.addNewTableCell().setText("Наименование база практики, населенный пункт")
-        headerRow.addNewTableCell().setText("Вид и тип практики")
-        headerRow.addNewTableCell().setText("Сроки практики")
-        headerRow.addNewTableCell().setText("Форма практики")
-        headerRow.addNewTableCell().setText("с оплатой/ без оплаты")
-        headerRow.addNewTableCell().setText("Руководитель по практике на кафедре")
 
-        // Применяем стиль к заголовку
-        for (cell in headerRow.tableCells) {
-            val paragraph = cell.paragraphs[0]
-            paragraph.alignment = org.apache.poi.xwpf.usermodel.ParagraphAlignment.CENTER
-            val run = paragraph.runs[0]
-            run.setFontSize(11)
+        // Ширины колонок для таблицы приказа
+        val columnWidths = intArrayOf(
+            500,   // №пп
+            2500,  // Ф. И. О. практиканта
+            2000,  // Наименование база практики
+            1200,  // Вид и тип практики
+            1200,  // Сроки практики
+            800,   // Форма практики
+            800,   // с оплатой/без оплаты
+            1000   // Руководитель по практике на кафедре  
+        )
+
+        val headers = listOf(
+            "№пп",
+            "Ф. И. О. практиканта\n(в именительном падеже)",
+            "Наименование база практики, населенный пункт",
+            "Вид и тип практики",
+            "Сроки практики",
+            "Форма практики",
+            "с оплатой/ без оплаты",
+            "Руководитель по практике на кафедре"
+        )
+
+        // Добавляем недостающие ячейки
+        while (headerRow.tableCells.size < headers.size) {
+            headerRow.addNewTableCell()
+        }
+
+        headers.forEachIndexed { index, header ->
+            val cell = headerRow.getCell(index)
+
+            // Устанавливаем ширину ячейки заголовка
+            val ctTc = cell.ctTc
+            val tcPr = ctTc.tcPr ?: ctTc.addNewTcPr()
+            val tcW = tcPr.tcW ?: tcPr.addNewTcW()
+            tcW.type = org.openxmlformats.schemas.wordprocessingml.x2006.main.STTblWidth.DXA
+            tcW.w = java.math.BigInteger.valueOf(columnWidths[index].toLong())
+
+            // Заполняем содержимое
+            cell.removeParagraph(0)
+            val p = cell.addParagraph()
+            p.alignment = org.apache.poi.xwpf.usermodel.ParagraphAlignment.CENTER
+            val run = p.createRun()
+            run.setText(header)
+            run.setFontSize(12)
             run.setFontFamily("Times New Roman")
-            run.isBold = true
+            run.isBold = false
         }
 
         // Добавляем строки со студентами
@@ -851,22 +935,32 @@ class NornViewModel {
         students.forEach { student ->
             val row = table.createRow()
 
-            row.getCell(0).setText(currentIndex.toString())
-            row.getCell(1).setText(student.name)
-            row.getCell(2).setText("${student.nameOfPracticeBase}, ${student.cityOfPractice}")
-            row.getCell(3).setText("${student.typeOfPractice} (тип: ознакомительная, 3 з.е.)")
-            row.getCell(4).setText(student.periodOfPractice)
-            row.getCell(5).setText("стационарная")
-            row.getCell(6).setText(if (student.isPaidPractice) "с оплатой" else "без оплаты")
-            row.getCell(7)
-                .setText("${student.postOfHeadOfPracticeFromDepartment}\n${student.headOfPracticeFromDepartment}")
+            val values = listOf(
+                currentIndex.toString(),
+                student.name,
+                "${student.nameOfPracticeBase}, ${student.cityOfPractice}",
+                "${student.typeOfPractice} (тип: ознакомительная, 3 з.е.)",
+                student.periodOfPractice,
+                student.practiceForm,
+                if (student.isPaidPractice) "с оплатой" else "без оплаты",
+                "${student.postOfHeadOfPracticeFromDepartment}\n${student.headOfPracticeFromDepartment}"
+            )
 
-            // Применяем стиль к строке
-            for (cell in row.tableCells) {
-                val paragraph = cell.paragraphs[0]
-                val run =
-                    if (paragraph.runs.isNotEmpty()) paragraph.runs[0] else paragraph.createRun()
-                run.setFontSize(10)
+            // Заполняем ячейки и устанавливаем ширины
+            values.forEachIndexed { index, value ->
+                val cell = row.getCell(index)
+
+                val ctTc = cell.ctTc
+                val tcPr = ctTc.tcPr ?: ctTc.addNewTcPr()
+                val tcW = tcPr.tcW ?: tcPr.addNewTcW()
+                tcW.type = org.openxmlformats.schemas.wordprocessingml.x2006.main.STTblWidth.DXA
+                tcW.w = java.math.BigInteger.valueOf(columnWidths[index].toLong())
+
+                cell.removeParagraph(0)
+                val p = cell.addParagraph()
+                val run = p.createRun()
+                run.setText(value)
+                run.setFontSize(12)
                 run.setFontFamily("Times New Roman")
             }
 
@@ -876,57 +970,88 @@ class NornViewModel {
         // Пустая строка после таблицы
         document.createParagraph()
 
+        // Пустая строка после таблицы с красной строкой
+        val emptyParagraph = document.createParagraph()
+        emptyParagraph.indentationFirstLine = 250 // красная строка
+        emptyParagraph.indentationLeft = 0
+
         return currentIndex
     }
 
     /**
      * Добавляет подписи в конец приказа
      */
-    private fun addOrderFooter(document: XWPFDocument) {
-        // Основание
+    private fun addOrderFooter(document: XWPFDocument, orderData: OrderData) {
+        // Основание с подчеркиванием
         val basisParagraph = document.createParagraph()
-        val basisRun = basisParagraph.createRun()
-        basisRun.setText("Основание: Представление и.о. зав. кафедрой «Вычислительная техника и инженерная кибернетика» Зарипова Д.М.,\n\tвиза согласования директора института цифровых систем, автоматизации и энергетики процессов Павловой З.Х.")
-        basisRun.setFontSize(12)
-        basisRun.setFontFamily("Times New Roman")
+        basisParagraph.indentationLeft = 0
+
+        // Слово "Основание:" подчеркнутое
+        val basisLabelRun = basisParagraph.createRun()
+        basisLabelRun.setText("Основание:")
+        basisLabelRun.setFontSize(12)
+        basisLabelRun.setFontFamily("Times New Roman")
+        basisLabelRun.isBold = false
+        basisLabelRun.setUnderline(org.apache.poi.xwpf.usermodel.UnderlinePatterns.SINGLE)
+
+        // Остальной текст основания
+        val basisTextRun = basisParagraph.createRun()
+        val basisText = orderData.basisText.ifBlank {
+            "Основание: Представление и.о. зав. кафедрой «Вычислительная техника и инженерная кибернетика» Зарипова Д.М.,\n\tвиза согласования директора института цифровых систем, автоматизации и энергетики процессов Павловой З.Х."
+        }
+        // Убираем "Основание:" из текста если оно есть
+        val cleanBasisText = basisText.removePrefix("Основание:").trim()
+        basisTextRun.setText(" $cleanBasisText")
+        basisTextRun.setFontSize(12)
+        basisTextRun.setFontFamily("Times New Roman")
+        basisTextRun.isBold = false
 
         // Пустые строки
         document.createParagraph()
         document.createParagraph()
 
         // Подписи
-        val signatures = listOf(
-            "Проректор по учебной работе" to "_________  А.И. Могучев",
-            "Начальник учебного отдела" to "_________  Н.В. Заиченко",
-            "Начальник отдела взаимодействия с организациями-партнёрами" to "_________  Р.Р. Даминов",
-            "Зам. начальника юридического отдела" to "_________ Р.Ф. Хуснулина",
-            "Руководитель учебно-производственной практики" to "_________ Э.Р. Читахян",
-            "Директор IT-института" to "_________ З.Х. Павлова"
-        )
+        val signaturesList = if (orderData.signatures.isNotEmpty()) {
+            orderData.signatures
+        } else {
+            listOf(
+                "Проректор по учебной работе" to "_________  ${orderData.prorectorName}",
+                "Начальник учебного отдела" to "_________  ${orderData.studyDepartmentHead}",
+                "Начальник отдела взаимодействия с организациями-партнёрами" to "_________  ${orderData.partnershipDepartmentHead}",
+                "Зам. начальника юридического отдела" to "_________ ${orderData.legalDepartmentDeputy}",
+                "Руководитель учебно-производственной практики" to "_________ ${orderData.practiceManager}",
+                "Директор IT-института" to "_________ ${orderData.instituteDirector}"
+            )
+        }
 
-        signatures.forEach { (position, signature) ->
+        signaturesList.forEach { (position, signature) ->
             val signatureParagraph = document.createParagraph()
+            signatureParagraph.indentationLeft = 0
             val signatureRun = signatureParagraph.createRun()
             signatureRun.setText("$position\t\t\t\t\t\t\t\t\t$signature")
             signatureRun.setFontSize(12)
             signatureRun.setFontFamily("Times New Roman")
+            signatureRun.isBold = false
         }
 
         // Согласовано
         val agreeParagraph = document.createParagraph()
         agreeParagraph.alignment = org.apache.poi.xwpf.usermodel.ParagraphAlignment.LEFT
+        agreeParagraph.indentationLeft = 0
         val agreeRun = agreeParagraph.createRun()
-        agreeRun.setText("СОГЛАСОВАНО")
+        agreeRun.setText(orderData.agreeText.ifBlank { "СОГЛАСОВАНО" })
         agreeRun.setFontSize(12)
         agreeRun.setFontFamily("Times New Roman")
-        agreeRun.isBold = true
+        agreeRun.isBold = false
 
         // Проект вносит
         val proposerParagraph = document.createParagraph()
+        proposerParagraph.indentationLeft = 0
         val proposerRun = proposerParagraph.createRun()
-        proposerRun.setText("Проект вносит:\nИ.о. зав. кафедрой ВТИК\t\t\t\t\t\t\t\t\t_________ Д.М. Зарипов")
+        proposerRun.setText(orderData.proposerText.ifBlank { "Проект вносит:\nИ.о. зав. кафедрой ВТИК\t\t\t\t\t\t\t\t\t_________ ${orderData.departmentHead}" })
         proposerRun.setFontSize(12)
         proposerRun.setFontFamily("Times New Roman")
+        proposerRun.isBold = false
     }
 
     /**
@@ -1268,7 +1393,7 @@ class NornViewModel {
                     p.alignment = org.apache.poi.xwpf.usermodel.ParagraphAlignment.CENTER
                     val run = p.createRun()
                     run.setText(header)
-                    run.setFontSize(14)
+                    run.setFontSize(12)
                     run.setBold(false)
                     run.setFontFamily("Times New Roman")
                 }
@@ -1305,7 +1430,7 @@ class NornViewModel {
                         val p = cell.addParagraph()
                         val run = p.createRun()
                         run.setText(value)
-                        run.setFontSize(14)
+                        run.setFontSize(12)
                         run.setBold(false)
                         run.setFontFamily("Times New Roman")
                     }
@@ -1438,7 +1563,7 @@ class NornViewModel {
                     p.alignment = org.apache.poi.xwpf.usermodel.ParagraphAlignment.CENTER
                     val run = p.createRun()
                     run.setText(header)
-                    run.setFontSize(14)
+                    run.setFontSize(12)
                     run.setBold(false)
                     run.setFontFamily("Times New Roman")
                 }
@@ -1495,7 +1620,7 @@ class NornViewModel {
                         val p = cell.addParagraph()
                         val run = p.createRun()
                         run.setText(value)
-                        run.setFontSize(14)
+                        run.setFontSize(12)
                         run.setBold(false)
                         run.setFontFamily("Times New Roman")
                     }

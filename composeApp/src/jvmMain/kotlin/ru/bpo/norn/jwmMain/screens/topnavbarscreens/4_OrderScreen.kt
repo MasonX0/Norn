@@ -4,230 +4,531 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import ru.bpo.norn.commonMain.models.OrderData
 import ru.bpo.norn.jwmMain.viewmodel.NornViewModel
-import java.io.File
-import javax.swing.JFileChooser
-import javax.swing.filechooser.FileNameExtensionFilter
 
 @Composable
 fun OrderScreen(viewModel: NornViewModel) {
-    val orderFile by viewModel.orderFile.collectAsState()
+    val orderData by viewModel.orderData.collectAsState()
     val groups by viewModel.groups.collectAsState()
-    var generationResult by remember { mutableStateOf<String?>(null) }
-    var isLoading by remember { mutableStateOf(false) }
 
-    // Получаем всех студентов из всех групп
+    // Получаем всех студентов из всех групп для статистики
     val allStudents = groups.flatMap { it.students }
-    
-    // Группируем студентов по типам финансирования
     val budgetStudents = allStudents.filter {
         it.formOfStudy.contains("бюджет", ignoreCase = true) ||
                 (!it.withPayment && !it.formOfStudy.contains("платн", ignoreCase = true) && 
                  !it.formOfStudy.contains("целев", ignoreCase = true))
     }
-    
     val targetStudents = allStudents.filter {
         it.formOfStudy.contains("целев", ignoreCase = true)
     }
-    
     val paidStudents = allStudents.filter {
         it.withPayment || it.formOfStudy.contains("платн", ignoreCase = true)
     }
 
-    Column(
+    Row(
         modifier = Modifier
             .fillMaxSize()
-            .padding(15.dp)
+            .padding(16.dp)
             .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(15.dp)
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text(
-            "Генерация приказа по практике",
-            color = MaterialTheme.colorScheme.onSurface,
-            style = MaterialTheme.typography.headlineSmall
-        )
-
-        // Статистика студентов
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant
-            )
+        // Левая часть - основная таблица и управление
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    "Статистика загруженных студентов:",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+            Text(
+                "Генерация приказа по практике",
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+
+            // Статистика студентов
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
                 )
-                
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text("📊 Всего студентов:")
-                    Text("${allStudents.size}", style = MaterialTheme.typography.titleMedium)
-                }
-                
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text("💰 Бюджетная основа:")
-                    Text("${budgetStudents.size}", color = MaterialTheme.colorScheme.primary)
-                }
-                
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text("🎯 Целевая основа:")
-                    Text("${targetStudents.size}", color = MaterialTheme.colorScheme.secondary)
-                }
-                
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text("💳 Платная основа:")
-                    Text("${paidStudents.size}", color = MaterialTheme.colorScheme.tertiary)
-                }
-                
-                if (allStudents.isEmpty()) {
                     Text(
-                        "⚠️ Нет загруженных студентов. Загрузите списки студентов в разделе 'Студенты'",
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall
+                        "Статистика загруженных студентов:",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("📊 Всего студентов:")
+                        Text("${allStudents.size}", style = MaterialTheme.typography.titleMedium)
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("💰 Бюджетная основа:")
+                        Text("${budgetStudents.size}", color = MaterialTheme.colorScheme.primary)
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("🎯 Целевая основа:")
+                        Text("${targetStudents.size}", color = MaterialTheme.colorScheme.secondary)
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("💳 Платная основа:")
+                        Text("${paidStudents.size}", color = MaterialTheme.colorScheme.tertiary)
+                    }
+
+                    if (allStudents.isEmpty()) {
+                        Text(
+                            "⚠️ Нет загруженных студентов. Загрузите списки студентов в разделе 'Студенты'",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            }
+
+            // Кнопка генерации приказа
+            Button(
+                onClick = {
+                    viewModel.generateOrderDocument(orderData)
+                },
+                enabled = allStudents.isNotEmpty(),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("📄 Сгенерировать приказ")
+            }
+
+            // Статус генерации документа
+            val documentStatus by viewModel.documentGenerationStatus.collectAsState()
+            if (documentStatus.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = when {
+                            documentStatus.startsWith("✅") -> Color(0xFF4CAF50).copy(alpha = 0.1f)
+                            documentStatus.startsWith("❌") -> Color(0xFFF44336).copy(alpha = 0.1f)
+                            else -> MaterialTheme.colorScheme.surfaceVariant
+                        }
+                    )
+                ) {
+                    Text(
+                        text = documentStatus,
+                        modifier = Modifier.padding(12.dp),
+                        color = when {
+                            documentStatus.startsWith("✅") -> Color(0xFF2E7D32)
+                            documentStatus.startsWith("❌") -> Color(0xFFD32F2F)
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        style = MaterialTheme.typography.bodyMedium
                     )
                 }
             }
+
+            // Превью приказа
+            OrderPreview(
+                orderData = orderData,
+                budgetStudents = budgetStudents,
+                targetStudents = targetStudents,
+                paidStudents = paidStudents
+            )
         }
 
-        // Кнопка генерации приказа (без шаблона)
-        Button(
-            onClick = {
-                isLoading = true
-                generationResult = null
-                try {
-                    val success = viewModel.generateOrderDocument()
-                    generationResult = if (success) {
-                        "✅ Приказ успешно создан на рабочем столе!"
-                    } else {
-                        "❌ Ошибка при создании приказа. Проверьте, что загружены студенты."
-                    }
-                } catch (e: Exception) {
-                    generationResult = "❌ Исключение: ${e.message}"
-                    e.printStackTrace()
-                } finally {
-                    isLoading = false
-                }
-            },
-            enabled = allStudents.isNotEmpty() && !isLoading,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
+        // Правая часть - форма редактирования данных приказа
+        Card(
+            modifier = Modifier.weight(1f),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
             )
         ) {
-            Text(if (isLoading) "Генерация приказа..." else "Сгенерировать приказ")
-        }
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    "Редактирование данных приказа",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
 
-        // Разделитель
-        HorizontalDivider()
-
-        Text(
-            "Или загрузите свой шаблон приказа:",
-            color = MaterialTheme.colorScheme.onSurface,
-            style = MaterialTheme.typography.bodyLarge
-        )
-
-        // Кнопка выбора шаблона
-        Button(onClick = {
-            val fileChooser = JFileChooser().apply {
-                // Путь по умолчанию - рабочий стол
-                currentDirectory = File(System.getProperty("user.home"), "Desktop")
-                dialogTitle = "Выберите шаблон документа"
-                addChoosableFileFilter(FileNameExtensionFilter("Word документы (*.docx)", "docx"))
-                fileFilter = FileNameExtensionFilter("Word документы", "docx")
+                OrderEditForm(
+                    orderData = orderData,
+                    onDataChange = { viewModel.updateOrderData(it) }
+                )
             }
-
-            if (fileChooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
-                viewModel.selectOrderFile(fileChooser.selectedFile)
-            }
-        },colors = ButtonColors(
-            containerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.4f),
-            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-            disabledContainerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.4f),
-            disabledContentColor = MaterialTheme.colorScheme.onSecondaryContainer
-        ), border = BorderStroke(1.dp,MaterialTheme.colorScheme.outline)
-        ) {
-            Text("Выбрать шаблон Word документа")
         }
+    }
+}
 
-        // Кнопка генерации документа по шаблону
-        Button(
-            onClick = {
-                isLoading = true
-                generationResult = null
-                try {
-                    val templateFile = orderFile
-                    if (templateFile != null) {
-                        val success = viewModel.generatePracticeDocument(templateFile)
-                        generationResult = if (success) {
-                            "✅ Документ успешно создан в той же папке!"
-                        } else {
-                            "❌ Ошибка при создании документа, закройте используемые word файлы!"
-                        }
-                    } else {
-                        generationResult = "⚠️ Сначала выберите шаблон документа"
-                    }
-                } catch (e: Exception) {
-                    generationResult = "❌ Исключение: ${e.message}"
-                    e.printStackTrace()
-                } finally {
-                    isLoading = false
-                }
-            },
-            enabled = orderFile != null && !isLoading,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.secondary,
-                contentColor = MaterialTheme.colorScheme.onSecondary
+@Composable
+fun OrderEditForm(
+    orderData: OrderData,
+    onDataChange: (OrderData) -> Unit
+) {
+    LazyColumn(
+        modifier = Modifier.heightIn(max = 600.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        item {
+            Text(
+                "Заголовки приказа",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary
             )
-        ) {
-            Text(if (isLoading) "Генерация..." else "Сгенерировать по шаблону")
         }
 
-        // Отображение состояния
+        item {
+            OutlinedTextField(
+                value = orderData.headerText,
+                onValueChange = { onDataChange(orderData.copy(headerText = it)) },
+                label = { Text("Заголовок приказа") },
+                placeholder = { Text("Проект приказа -4п от _________") },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        item {
+            OutlinedTextField(
+                value = orderData.titleText,
+                onValueChange = { onDataChange(orderData.copy(titleText = it)) },
+                label = { Text("Название приказа") },
+                placeholder = { Text("Об учебной практике (ознакомительной практике)") },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        item {
+            OutlinedTextField(
+                value = orderData.instituteText,
+                onValueChange = { onDataChange(orderData.copy(instituteText = it)) },
+                label = { Text("Институт") },
+                placeholder = { Text("По институту цифровых систем, автоматизации и энергетики процессов") },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        item {
+            Text(
+                "Основание и подписи",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+
+        item {
+            OutlinedTextField(
+                value = orderData.basisText,
+                onValueChange = { onDataChange(orderData.copy(basisText = it)) },
+                label = { Text("Основание") },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 3,
+                maxLines = 5
+            )
+        }
+
+        item {
+            OutlinedTextField(
+                value = orderData.agreeText,
+                onValueChange = { onDataChange(orderData.copy(agreeText = it)) },
+                label = { Text("Текст согласования") },
+                placeholder = { Text("СОГЛАСОВАНО") },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        item {
+            OutlinedTextField(
+                value = orderData.proposerText,
+                onValueChange = { onDataChange(orderData.copy(proposerText = it)) },
+                label = { Text("Проект вносит") },
+                placeholder = { Text("Проект вносит:\nИ.о. зав. кафедрой ВТИК_________ Д.М. Зарипов") },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 2,
+                maxLines = 3
+            )
+        }
+
+        item {
+            Text(
+                "Подписанты",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+
+        item {
+            OutlinedTextField(
+                value = orderData.prorectorName,
+                onValueChange = { onDataChange(orderData.copy(prorectorName = it)) },
+                label = { Text("Проректор по учебной работе") },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        item {
+            OutlinedTextField(
+                value = orderData.studyDepartmentHead,
+                onValueChange = { onDataChange(orderData.copy(studyDepartmentHead = it)) },
+                label = { Text("Начальник учебного отдела") },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        item {
+            OutlinedTextField(
+                value = orderData.partnershipDepartmentHead,
+                onValueChange = { onDataChange(orderData.copy(partnershipDepartmentHead = it)) },
+                label = { Text("Начальник отдела взаимодействия с организациями-партнёрами") },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        item {
+            OutlinedTextField(
+                value = orderData.legalDepartmentDeputy,
+                onValueChange = { onDataChange(orderData.copy(legalDepartmentDeputy = it)) },
+                label = { Text("Зам. начальника юридического отдела") },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        item {
+            OutlinedTextField(
+                value = orderData.practiceManager,
+                onValueChange = { onDataChange(orderData.copy(practiceManager = it)) },
+                label = { Text("Руководитель учебно-производственной практики") },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        item {
+            OutlinedTextField(
+                value = orderData.instituteDirector,
+                onValueChange = { onDataChange(orderData.copy(instituteDirector = it)) },
+                label = { Text("Директор IT-института") },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        item {
+            OutlinedTextField(
+                value = orderData.departmentHead,
+                onValueChange = { onDataChange(orderData.copy(departmentHead = it)) },
+                label = { Text("Зав. кафедрой ВТИК") },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        item {
+            Text(
+                "💡 Подсказка: Оставьте поля пустыми чтобы использовать значения по умолчанию",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+fun OrderPreview(
+    orderData: OrderData,
+    budgetStudents: List<ru.bpo.norn.commonMain.models.Student>,
+    targetStudents: List<ru.bpo.norn.commonMain.models.Student>,
+    paidStudents: List<ru.bpo.norn.commonMain.models.Student>
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+    ) {
         Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.Start
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text("Состояние:",
-                style = MaterialTheme.typography.titleMedium)
-
-            Text("Шаблон: ${orderFile?.name ?: "не выбран"}")
-            orderFile?.let { file ->
-                Text("Путь: ${file.absolutePath}", 
-                     style = MaterialTheme.typography.bodySmall)
-            }
-
+            Text(
+                "📄 Превью приказа",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+            
+            Text(
+                "💡 Предварительный просмотр генерируемого приказа с актуальными данными",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            HorizontalDivider()
+            
+            // Заголовок приказа
+            Text(
+                orderData.headerText.ifBlank { "Проект приказа -4п от _________" },
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = androidx.compose.ui.text.style.TextAlign.End
+            )
+            
+            Text(
+                orderData.titleText.ifBlank { "Об учебной практике (ознакомительной практике)" },
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+            
+            Text(
+                orderData.instituteText.ifBlank { "По институту цифровых систем, автоматизации и энергетики процессов" },
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+            
             Spacer(modifier = Modifier.height(8.dp))
-
-            generationResult?.let { result ->
-                Text(result,
-                    style = MaterialTheme.typography.bodyMedium)
+            
+            // Секции студентов
+            if (budgetStudents.isNotEmpty()) {
+                OrderSection(
+                    sectionNumber = 1,
+                    fundingType = "бюджетной основе",
+                    students = budgetStudents,
+                    startIndex = 1
+                )
             }
-
-            if (isLoading) {
-                Text("⏳ Идет генерация документа...")
+            
+            if (targetStudents.isNotEmpty()) {
+                OrderSection(
+                    sectionNumber = 2,
+                    fundingType = "целевой основе", 
+                    students = targetStudents,
+                    startIndex = budgetStudents.size + 1
+                )
+            }
+            
+            if (paidStudents.isNotEmpty()) {
+                OrderSection(
+                    sectionNumber = 3,
+                    fundingType = "платной основе",
+                    students = paidStudents,
+                    startIndex = budgetStudents.size + targetStudents.size + 1
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Основание
+            Text(
+                "Основание: ${orderData.basisText.ifBlank { "Представление и.о. зав. кафедрой «Вычислительная техника и инженерная кибернетика» Зарипова Д.М., виза согласования директора института цифровых систем, автоматизации и энергетики процессов Павловой З.Х." }}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Подписи
+            Text(
+                "Подписи:",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            val signatures = listOf(
+                "Проректор по учебной работе" to orderData.prorectorName,
+                "Начальник учебного отдела" to orderData.studyDepartmentHead,
+                "Директор IT-института" to orderData.instituteDirector
+            )
+            
+            signatures.forEach { (position, name) ->
+                Text(
+                    "$position _________ $name",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
+    }
+}
+
+@Composable
+private fun OrderSection(
+    sectionNumber: Int,
+    fundingType: String,
+    students: List<ru.bpo.norn.commonMain.models.Student>,
+    startIndex: Int
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            "$sectionNumber Нижеперечисленных студентов потока БПО09-24 и БПО09и-24 направления 09.03.01 Информатика и вычислительная техника, профиля «Технологии искусственного интеллекта в нефтегазовой отрасли», обучающихся на $fundingType, направить для прохождения практики на следующие базы практик:",
+            style = MaterialTheme.typography.bodyMedium
+        )
+        
+        // Мини-таблица студентов (показываем первых 3)
+        students.take(3).forEachIndexed { index, student ->
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(start = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    "${startIndex + index}.",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.width(30.dp)
+                )
+                Text(
+                    student.name,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    student.practiceForm,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+        
+        if (students.size > 3) {
+            Text(
+                "... и еще ${students.size - 3} студентов",
+                style = MaterialTheme.typography.bodySmall.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 16.dp)
+            )
+        }
+        
+        Text(
+            "Всего в секции: ${students.size} студентов",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(start = 16.dp)
+        )
     }
 }

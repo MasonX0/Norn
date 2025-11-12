@@ -34,3 +34,35 @@ data class SummaryReportData(
     /** Поле 10: Заключение о выполнении программы практики */
     val field10_conclusion: String = "Считаем, что все цели и задачи были выполнены"
 )
+
+/**
+ * Модель данных для приказа по практике
+ */
+data class OrderData(
+    val orderNumber: String = "",
+    val orderDate: String = "",
+    val headerText: String = "",
+    val titleText: String = "",
+    val instituteText: String = "",
+    val practiceType: String = "учебной практике (ознакомительной практике)",
+    val institute: String = "По институту цифровых систем, автоматизации и энергетики процессов",
+    val direction: String = "09.03.01 Информатика и вычислительная техника",
+    val profile: String = "Технологии искусственного интеллекта в нефтегазовой отрасли",
+    val practiceCredits: String = "3 з.е.",
+    val practiceForm: String = "стационарная",
+    val basisText: String = "Основание: Представление и.о. зав. кафедрой «Вычислительная техника и инженерная кибернетика» Зарипова Д.М.,\n\tвиза согласования директора института цифровых систем, автоматизации и энергетики процессов Павловой З.Х.",
+    val agreeText: String = "",
+    val proposerText: String = "",
+
+    // Подписи как список пар (должность, подпись) 
+    val signatures: List<Pair<String, String>> = emptyList(),
+
+    // Подписи (отдельные поля для удобства редактирования)
+    val prorectorName: String = "А.И. Могучев",
+    val studyDepartmentHead: String = "Н.В. Заиченко",
+    val partnershipDepartmentHead: String = "Р.Р. Даминов",
+    val legalDepartmentDeputy: String = "Р.Ф. Хуснулина",
+    val practiceManager: String = "Э.Р. Читахян",
+    val instituteDirector: String = "З.Х. Павлова",
+    val departmentHead: String = "Д.М. Зарипов"
+)

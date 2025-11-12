@@ -41,6 +41,9 @@ data class Student(
     /** Оплачиваемая ли практика */
     val isPaidPractice: Boolean = false,
 
+    /** Форма практики (стационарная, выездная) */
+    val practiceForm: String = "стационарная",
+
     /** Город прохождения практики  */
     val cityOfPractice: String,
 

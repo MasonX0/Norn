@@ -209,9 +209,10 @@ private fun GroupEditDialog(
     var nameOfDirection by remember { mutableStateOf(currentGroup.nameOfDirection) }
     var nameOfSpeciality by remember { mutableStateOf("") }
     var codeOfSpeciality by remember { mutableStateOf("") }
+    var practiceForm by remember { mutableStateOf("") }
     var formOfStudy by remember { mutableStateOf("") }
     var isForeign by remember { mutableStateOf(false) }
-    var withPayment by remember { mutableStateOf(false) }
+    var isPaidPractice by remember { mutableStateOf(false) }
     var gradeForPractice by remember { mutableStateOf("") }
 
     // Флаги: поле было задано (даже если стало пустым)
@@ -228,6 +229,7 @@ private fun GroupEditDialog(
     var isNameOfDirectionSet by remember { mutableStateOf(true) }
     var isNameOfSpecialitySet by remember { mutableStateOf(false) }
     var isCodeOfSpecialitySet by remember { mutableStateOf(false) }
+    var isPracticeFormSet by remember { mutableStateOf(false) }
     var isFormOfStudySet by remember { mutableStateOf(false) }
     var isGradeForPracticeSet by remember { mutableStateOf(false) }
 
@@ -314,6 +316,11 @@ private fun GroupEditDialog(
                     codeOfSpeciality = it
                     isCodeOfSpecialitySet = true
                 },
+                practiceForm = practiceForm,
+                onPracticeFormChange = {
+                    practiceForm = it
+                    isPracticeFormSet = true
+                },
                 formOfStudy = formOfStudy,
                 onFormOfStudyChange = {
                     formOfStudy = it
@@ -321,8 +328,8 @@ private fun GroupEditDialog(
                 },
                 isForeign = isForeign,
                 onIsForeignChange = { isForeign = it },
-                withPayment = withPayment,
-                onWithPaymentChange = { withPayment = it },
+                isPaidPractice = isPaidPractice,
+                onIsPaidPracticeChange = { isPaidPractice = it },
                 gradeForPractice = gradeForPractice,
                 onGradeForPracticeChange = {
                     gradeForPractice = it
@@ -358,9 +365,9 @@ private fun GroupEditDialog(
                             nameOfPracticeBase = if (isNameOfPracticeBaseSet) nameOfPracticeBase else student.nameOfPracticeBase,
                             typeOfPractice = if (isTypeOfPracticeSet) typeOfPractice else student.typeOfPractice,
                             periodOfPractice = if (isPeriodOfPracticeSet) periodOfPractice else student.periodOfPractice,
+                            practiceForm = if (isPracticeFormSet) practiceForm else student.practiceForm,
                             formOfStudy = if (isFormOfStudySet) formOfStudy else student.formOfStudy,
-                            withPayment = withPayment,
-                            isPaidPractice = withPayment, 
+                            isPaidPractice = isPaidPractice,
                             cityOfPractice = if (isCityOfPracticeSet) cityOfPractice else student.cityOfPractice,
                             nameOfSpeciality = if (isNameOfSpecialitySet) nameOfSpeciality else student.nameOfSpeciality,
                             codeOfSpeciality = if (isCodeOfSpecialitySet) codeOfSpeciality else student.codeOfSpeciality,
@@ -368,7 +375,8 @@ private fun GroupEditDialog(
                             headOfPracticeFromPracticeBase = if (isHeadOfPracticeFromPracticeBaseSet) headOfPracticeFromPracticeBase else student.headOfPracticeFromPracticeBase,
                             postOfHeadOfPracticeFromPracticeBase = if (isPostOfHeadOfPracticeFromPracticeBaseSet) postOfHeadOfPracticeFromPracticeBase else student.postOfHeadOfPracticeFromPracticeBase,
                             postOfHeadOfPracticeFromDepartment = if (isPostOfHeadOfPracticeFromDepartmentSet) postOfHeadOfPracticeFromDepartment else student.postOfHeadOfPracticeFromDepartment,
-                            directorName = if (isDirectorNameSet) directorName else student.directorName
+                            directorName = if (isDirectorNameSet) directorName else student.directorName,
+                            withPayment = isPaidPractice
                         )
                     )
                 }
@@ -416,9 +424,10 @@ private fun StudentEditDialog(
     }
     var nameOfSpeciality by remember { mutableStateOf(student?.nameOfSpeciality ?: "") }
     var codeOfSpeciality by remember { mutableStateOf(student?.codeOfSpeciality ?: "") }
+    var practiceForm by remember { mutableStateOf(student?.practiceForm ?: "") }
     var formOfStudy by remember { mutableStateOf(student?.formOfStudy ?: "") }
     var isForeign by remember { mutableStateOf(student?.isForeign ?: false) }
-    var withPayment by remember { mutableStateOf(student?.withPayment ?: false) }
+    var isPaidPractice by remember { mutableStateOf(student?.isPaidPractice ?: false) }
     var gradeForPractice by remember { mutableStateOf(student?.gradeForPractice ?: "") }
 
     AlertDialog(
@@ -479,12 +488,14 @@ private fun StudentEditDialog(
                     onNameOfSpecialityChange = { nameOfSpeciality = it },
                     codeOfSpeciality = codeOfSpeciality,
                     onCodeOfSpecialityChange = { codeOfSpeciality = it },
+                    practiceForm = practiceForm,
+                    onPracticeFormChange = { practiceForm = it },
                     formOfStudy = formOfStudy,
                     onFormOfStudyChange = { formOfStudy = it },
                     isForeign = isForeign,
                     onIsForeignChange = { isForeign = it },
-                    withPayment = withPayment,
-                    onWithPaymentChange = { withPayment = it },
+                    isPaidPractice = isPaidPractice,
+                    onIsPaidPracticeChange = { isPaidPractice = it },
                     gradeForPractice = gradeForPractice,
                     onGradeForPracticeChange = { gradeForPractice = it },
                     enterprisesList = enterprisesList,
@@ -508,9 +519,9 @@ private fun StudentEditDialog(
                                 nameOfPracticeBase = nameOfPracticeBase,
                                 typeOfPractice = typeOfPractice,
                                 periodOfPractice = periodOfPractice,
+                                practiceForm = practiceForm,
                                 formOfStudy = formOfStudy,
-                                withPayment = withPayment,
-                                isPaidPractice = withPayment, 
+                                isPaidPractice = isPaidPractice,
                                 cityOfPractice = cityOfPractice,
                                 nameOfSpeciality = nameOfSpeciality,
                                 codeOfSpeciality = codeOfSpeciality,
@@ -518,7 +529,8 @@ private fun StudentEditDialog(
                                 headOfPracticeFromPracticeBase = headOfPracticeFromPracticeBase,
                                 postOfHeadOfPracticeFromPracticeBase = postOfHeadOfPracticeFromPracticeBase,
                                 postOfHeadOfPracticeFromDepartment = postOfHeadOfPracticeFromDepartment,
-                                directorName = directorName
+                                directorName = directorName,
+                                withPayment = isPaidPractice
                             )
                         )
                     }
@@ -564,12 +576,14 @@ private fun EditFormContent(
     onNameOfSpecialityChange: (String) -> Unit,
     codeOfSpeciality: String,
     onCodeOfSpecialityChange: (String) -> Unit,
+    practiceForm: String,
+    onPracticeFormChange: (String) -> Unit,
     formOfStudy: String,
     onFormOfStudyChange: (String) -> Unit,
     isForeign: Boolean,
     onIsForeignChange: (Boolean) -> Unit,
-    withPayment: Boolean,
-    onWithPaymentChange: (Boolean) -> Unit,
+    isPaidPractice: Boolean,
+    onIsPaidPracticeChange: (Boolean) -> Unit,
     gradeForPractice: String,
     onGradeForPracticeChange: (String) -> Unit,
     enterprisesList: List<Enterprise>,
@@ -579,11 +593,13 @@ private fun EditFormContent(
     var selectedSupervisor by remember { mutableStateOf<PracticeSupervisor?>(null) }
 
     // Состояния для выпадающих списков
+    var practiceFormExpanded by remember { mutableStateOf(false) }
     var formOfStudyExpanded by remember { mutableStateOf(false) }
     var practicePaymentExpanded by remember { mutableStateOf(false) }
 
     // Варианты для выпадающих списков
-    val formOfStudyOptions = listOf("Бюджет", "Платное", "Целевое")
+    val practiceFormOptions = listOf("стационарная", "выездная")
+    val formOfStudyOptions = listOf("Бюджетная", "Платная", "Целевая")
     val practicePaymentOptions = listOf("Оплачиваемая", "Неоплачиваемая")
 
     @Composable
@@ -688,7 +704,7 @@ private fun EditFormContent(
                 OutlinedTextField(
                     modifier = Modifier.fillMaxWidth(),
                     readOnly = true,
-                    value = if (withPayment) "Оплачиваемая" else "Неоплачиваемая",
+                    value = if (isPaidPractice) "Оплачиваемая" else "Неоплачиваемая",
                     onValueChange = {},
                     label = { Text("Оплата практики") },
                     trailingIcon = {
@@ -698,7 +714,7 @@ private fun EditFormContent(
                             Text(if (practicePaymentExpanded) "▲" else "▼")
                         }
                     },
-                    colors = if (withPayment) fieldColors("оплачиваемая") else OutlinedTextFieldDefaults.colors()
+                    colors = if (isPaidPractice) fieldColors("оплачиваемая") else OutlinedTextFieldDefaults.colors()
                 )
                 DropdownMenu(
                     expanded = practicePaymentExpanded,
@@ -709,7 +725,7 @@ private fun EditFormContent(
                         DropdownMenuItem(
                             text = { Text(option) },
                             onClick = {
-                                onWithPaymentChange(option == "Оплачиваемая")
+                                onIsPaidPracticeChange(option == "Оплачиваемая")
                                 practicePaymentExpanded = false
                             }
                         )
@@ -774,6 +790,36 @@ private fun EditFormContent(
                 colors = fieldColors(directorName)
             )
 
+            Box(modifier = Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    modifier = Modifier.fillMaxWidth(),
+                    readOnly = true,
+                    value = practiceForm.ifEmpty { "Не выбрано" },
+                    onValueChange = {},
+                    label = { Text("Форма практики") },
+                    trailingIcon = {
+                        TextButton(onClick = { practiceFormExpanded = !practiceFormExpanded }) {
+                            Text(if (practiceFormExpanded) "▲" else "▼")
+                        }
+                    },
+                    colors = fieldColors(practiceForm)
+                )
+                DropdownMenu(
+                    expanded = practiceFormExpanded,
+                    onDismissRequest = { practiceFormExpanded = false },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    practiceFormOptions.forEach { option ->
+                        DropdownMenuItem(
+                            text = { Text(option) },
+                            onClick = {
+                                onPracticeFormChange(option)
+                                practiceFormExpanded = false
+                            }
+                        )
+                    }
+                }
+            }
             Box(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
                     modifier = Modifier.fillMaxWidth(),

@@ -1172,6 +1172,7 @@ class NornViewModel {
             "{postOfHeadOfPracticeFromPracticeBase}" to (student.postOfHeadOfPracticeFromPracticeBase.ifBlank { "NULL" }),
             "{directorName}" to (student.directorName.ifBlank { "NULL" }),
             "{directionNumber}" to directionNumber.toString(),
+            "{N}" to directionNumber.toString(),
             "{nameOfSpeciality}" to (student.nameOfSpeciality.ifBlank { "NULL" }),
             "{codeOfSpeciality}" to (student.codeOfSpeciality.ifBlank { "NULL" }),
             "{gradeForPractice}" to (student.gradeForPractice.ifBlank { "NULL" }),

@@ -99,7 +99,7 @@ fun SummaryReport(viewModel: NornViewModel) {
             }
 
             // Статус генерации документа
-            val documentStatus by viewModel.documentGenerationStatus.collectAsState()
+            val documentStatus by viewModel.reportGenerationStatus.collectAsState()
             if (documentStatus.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Card(
@@ -156,7 +156,7 @@ fun SummaryReport(viewModel: NornViewModel) {
                 }
 
                 Text(
-                    "💾 Отчет будет сохранен: Desktop/Сводный_отчет_по_практике.docx",
+                    "💾 Отчет будет сохранен: ${viewModel.getOutputDirectory("Отчеты").absolutePath}/Сводный_отчет_по_практике.docx",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

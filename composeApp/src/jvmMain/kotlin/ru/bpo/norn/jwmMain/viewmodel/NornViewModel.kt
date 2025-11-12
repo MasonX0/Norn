@@ -34,6 +34,13 @@ class NornViewModel {
     fun getStartDirectory(): File {
         return _baseDirectory.value ?: File(System.getProperty("user.home"))
     }
+    
+    /**
+     * Проверяет, установлена ли базовая директория
+     */
+    fun isBaseDirectorySet(): Boolean {
+        return _baseDirectory.value != null
+    }
 
     /**
      * Настраивает кодировку консоли для корректного отображения русских символов
@@ -686,9 +693,18 @@ class NornViewModel {
     private val _summaryReportData = MutableStateFlow(SummaryReportData())
     val summaryReportData: StateFlow<SummaryReportData> = _summaryReportData.asStateFlow()
 
-    // Статус генерации документов
+    // Статусы генерации документов - раздельные для приказа, отчета, направлений
     private val _documentGenerationStatus = MutableStateFlow("")
     val documentGenerationStatus: StateFlow<String> = _documentGenerationStatus.asStateFlow()
+
+    private val _reportGenerationStatus = MutableStateFlow("")
+    val reportGenerationStatus: StateFlow<String> = _reportGenerationStatus.asStateFlow()
+
+    private val _orderGenerationStatus = MutableStateFlow("")
+    val orderGenerationStatus: StateFlow<String> = _orderGenerationStatus.asStateFlow()
+
+    private val _directionsGenerationStatus = MutableStateFlow("")
+    val directionsGenerationStatus: StateFlow<String> = _directionsGenerationStatus.asStateFlow()
 
     // ==================== OrderData StateFlow ====================
     private val _orderData = MutableStateFlow(OrderData())
@@ -744,20 +760,38 @@ class NornViewModel {
     }
 
     /**
+     * Получает директорию для сохранения создаваемых файлов с созданием подпапок
+     * Если базовая директория установлена, создает подпапку, иначе рабочий стол.
+     */
+    fun getOutputDirectory(subfolderName: String = ""): File {
+        val baseDir = _baseDirectory.value ?: File(System.getProperty("user.home"), "Desktop")
+
+        return if (subfolderName.isNotEmpty()) {
+            val subfolder = File(baseDir, subfolderName)
+            if (!subfolder.exists()) {
+                subfolder.mkdirs()
+                println("📁 Создана подпапка: ${subfolder.absolutePath}")
+            }
+            subfolder
+        } else {
+            baseDir
+        }
+    }
+
+    /**
      * Генерирует приказ по всем загруженным группам с разделением по форме обучения
      */
     fun generateOrderDocument(orderData: OrderData = _orderData.value): Boolean {
         return try {
-            _documentGenerationStatus.value = "🔄 Создание приказа..."
+            _orderGenerationStatus.value = "🔄 Создание приказа..."
 
-            val outputFile =
-                File(System.getProperty("user.home"), "Desktop/Приказ_по_практике.docx")
+            val outputFile = File(getOutputDirectory("Приказы"), "Приказ_по_практике.docx")
 
             // Получаем всех студентов из всех групп
             val allStudents = repository.groups.value.flatMap { it.students }
 
             if (allStudents.isEmpty()) {
-                _documentGenerationStatus.value = "❌ Нет загруженных студентов для создания приказа"
+                _orderGenerationStatus.value = "❌ Нет загруженных студентов для создания приказа"
                 println("❌ Нет загруженных студентов для создания приказа")
                 return false
             }
@@ -765,16 +799,16 @@ class NornViewModel {
             val success = createOrderDocument(allStudents, orderData, outputFile)
 
             if (success) {
-                _documentGenerationStatus.value = "✅ Приказ создан: ${outputFile.absolutePath}"
+                _orderGenerationStatus.value = "✅ Приказ создан: ${outputFile.absolutePath}"
                 println("✅ Приказ создан: ${outputFile.absolutePath}")
                 true
             } else {
-                _documentGenerationStatus.value = "❌ Ошибка при создании приказа"
+                _orderGenerationStatus.value = "❌ Ошибка при создании приказа"
                 println("❌ Ошибка при создании приказа")
                 false
             }
         } catch (e: Exception) {
-            _documentGenerationStatus.value = "❌ Ошибка: ${e.message}"
+            _orderGenerationStatus.value = "❌ Ошибка: ${e.message}"
             println("❌ Исключение при создании приказа: ${e.message}")
             e.printStackTrace()
             false
@@ -1408,26 +1442,23 @@ class NornViewModel {
         groupStatistics: Map<String, ru.bpo.norn.commonMain.models.GroupStatistics>
     ): Boolean {
         return try {
-            _documentGenerationStatus.value = "🔄 Создание документа..."
+            _reportGenerationStatus.value = "🔄 Создание отчета..."
 
-            val outputFile = File(
-                System.getProperty("user.home"),
-                "Desktop/Сводный_отчет_по_практике.docx"
-            )
+            val outputFile = File(getOutputDirectory("Отчеты"), "Сводный_отчет_по_практике.docx")
 
             val success = createSummaryReportFromScratch(reportData, groupStatistics, outputFile)
 
             if (success) {
-                _documentGenerationStatus.value = "✅ Отчет создан: ${outputFile.absolutePath}"
+                _reportGenerationStatus.value = "✅ Отчет создан: ${outputFile.absolutePath}"
                 println("✅ Сводный отчет создан: ${outputFile.absolutePath}")
                 true
             } else {
-                _documentGenerationStatus.value = "❌ Ошибка при создании отчета"
+                _reportGenerationStatus.value = "❌ Ошибка при создании отчета"
                 println("❌ Ошибка при создании сводного отчета")
                 false
             }
         } catch (e: Exception) {
-            _documentGenerationStatus.value = "❌ Ошибка: ${e.message}"
+            _reportGenerationStatus.value = "❌ Ошибка: ${e.message}"
             println("❌ Исключение при создании сводного отчета: ${e.message}")
             e.printStackTrace()
             false
@@ -1936,34 +1967,42 @@ class NornViewModel {
     /**
      * Генерирует направления на практику для выбранной группы
      * Создает отдельный файл для каждого студента используя правильный рабочий метод
+     * Новая логика: если базовая директория выбрана - создаю в подпапке "Направления", если нет - требую выбор папки
      */
     fun generateDirectionsFromTemplate(): Boolean {
         return try {
             val templateFile = _directionTemplateFile.value
             val selectedGroup = _selectedGroupForDirections.value
-            val outputFolder = _directionsOutputFolder.value
+            
+            // Логика выбора папки: если базовая директория установлена - используем подпапку,
+            // если нет - требуем явного выбора папки
+            val outputFolder = if (_baseDirectory.value != null) {
+                _directionsOutputFolder.value ?: getOutputDirectory("Направления")
+            } else {
+                _directionsOutputFolder.value
+            }
 
             if (templateFile == null) {
-                _documentGenerationStatus.value = "❌ Не выбран шаблон направления"
+                _directionsGenerationStatus.value = "❌ Не выбран шаблон направления"
                 return false
             }
 
             if (selectedGroup == null) {
-                _documentGenerationStatus.value = "❌ Не выбрана группа"
+                _directionsGenerationStatus.value = "❌ Не выбрана группа"
                 return false
             }
 
             if (outputFolder == null) {
-                _documentGenerationStatus.value = "❌ Не выбрана папка для сохранения"
+                _directionsGenerationStatus.value = "❌ Выберите папку для сохранения направлений или установите базовую директорию в настройках"
                 return false
             }
 
             if (selectedGroup.students.isEmpty()) {
-                _documentGenerationStatus.value = "❌ В выбранной группе нет студентов"
+                _directionsGenerationStatus.value = "❌ В выбранной группе нет студентов"
                 return false
             }
 
-            _documentGenerationStatus.value = "🔄 Создание направлений для группы ${selectedGroup.name}..."
+            _directionsGenerationStatus.value = "🔄 Создание направлений для группы ${selectedGroup.name}..."
 
             var successCount = 0
             var failCount = 0
@@ -1996,16 +2035,16 @@ class NornViewModel {
             }
 
             if (failCount == 0) {
-                _documentGenerationStatus.value = "✅ Все направления созданы успешно! ($successCount файлов) в папке: ${outputFolder.absolutePath}"
+                _directionsGenerationStatus.value = "✅ Все направления созданы успешно! ($successCount файлов) в папке: ${outputFolder.absolutePath}"
                 println("✅ Все направления созданы успешно! ($successCount файлов)")
                 true
             } else {
-                _documentGenerationStatus.value = "⚠️ Создано: $successCount, ошибок: $failCount. Проверьте папку: ${outputFolder.absolutePath}"
+                _directionsGenerationStatus.value = "⚠️ Создано: $successCount, ошибок: $failCount. Проверьте папку: ${outputFolder.absolutePath}"
                 println("⚠️ Создано: $successCount, ошибок: $failCount")
                 true
             }
         } catch (e: Exception) {
-            _documentGenerationStatus.value = "❌ Ошибка: ${e.message}"
+            _directionsGenerationStatus.value = "❌ Ошибка: ${e.message}"
             println("❌ Исключение при создании направлений: ${e.message}")
             e.printStackTrace()
             false

@@ -23,7 +23,7 @@ import java.io.File
 
 @Composable
 fun DestinationScreen(viewModel: NornViewModel) {
-    val documentGenerationStatus by viewModel.documentGenerationStatus.collectAsState()
+    val documentGenerationStatus by viewModel.directionsGenerationStatus.collectAsState()
     val directionTemplateFile by viewModel.directionTemplateFile.collectAsState()
     val groups by viewModel.groups.collectAsState()
     val selectedGroup by viewModel.selectedGroupForDirections.collectAsState()
@@ -31,6 +31,7 @@ fun DestinationScreen(viewModel: NornViewModel) {
     val dateOfDirectionIssue by viewModel.dateOfDirectionIssue.collectAsState()
     val dateOfTaskReceived by viewModel.dateOfTaskReceived.collectAsState()
     val dateOfDepartmentReview by viewModel.dateOfDepartmentReview.collectAsState()
+    val baseDirectory by viewModel.baseDirectory.collectAsState()
 
     Column(
         modifier = Modifier
@@ -199,31 +200,82 @@ fun DestinationScreen(viewModel: NornViewModel) {
         }
 
         // Выбор папки для сохранения
-        Button(
-            onClick = {
-                val folderChooser = JFileChooser().apply {
-                    fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
-                    dialogTitle = "Выберите папку для сохранения направлений"
-                    currentDirectory = viewModel.getStartDirectory()
-                }
-                
-                val result = folderChooser.showOpenDialog(null)
-                if (result == JFileChooser.APPROVE_OPTION) {
-                    viewModel.selectDirectionsOutputFolder(folderChooser.selectedFile)
-                }
-            },
-            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
-        ) {
-            Text("📂 Выбрать папку для сохранения")
-        }
-
-        outputFolder?.let { outputFolder ->
-            Text(
-                "Выбранная папка: ${outputFolder.absolutePath}",
-                fontSize = 12.sp,
-                color = Color.Green,
-                modifier = Modifier.padding(bottom = 8.dp)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
             )
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    "📂 Папка для сохранения направлений:",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                if (baseDirectory != null) {
+                    Text(
+                        "✅ Базовая директория установлена. Направления будут сохранены:",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    outputFolder?.let { folder ->
+                        Text(
+                            "📁 Выбранная папка: ${folder.absolutePath}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.Green
+                        )
+                    } ?: run {
+                        Text(
+                            "📁 По умолчанию: ${viewModel.getOutputDirectory("Направления").absolutePath}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else {
+                    Text(
+                        "⚠️ Базовая директория не установлена. Необходимо выбрать папку для сохранения:",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+
+                    outputFolder?.let { folder ->
+                        Text(
+                            "📁 Выбранная папка: ${folder.absolutePath}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.Green
+                        )
+                    } ?: run {
+                        Text(
+                            "❌ Папка не выбрана",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+
+                Button(
+                    onClick = {
+                        val folderChooser = JFileChooser().apply {
+                            fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
+                            dialogTitle = "Выберите папку для сохранения направлений"
+                            currentDirectory = viewModel.getOutputDirectory()
+                        }
+
+                        val result = folderChooser.showOpenDialog(null)
+                        if (result == JFileChooser.APPROVE_OPTION) {
+                            viewModel.selectDirectionsOutputFolder(folderChooser.selectedFile)
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(if (baseDirectory != null) "📂 Изменить папку (необязательно)" else "📂 Выбрать папку (обязательно)")
+                }
+            }
         }
 
         // Поля для ввода дат (общие для всей группы)
@@ -315,7 +367,7 @@ fun DestinationScreen(viewModel: NornViewModel) {
             enabled = selectedGroup != null &&
                     selectedGroup!!.students.isNotEmpty() &&
                     directionTemplateFile != null &&
-                    outputFolder != null,
+                    (baseDirectory != null || outputFolder != null),
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("📄 Сгенерировать направления для группы ${selectedGroup?.name ?: ""}")

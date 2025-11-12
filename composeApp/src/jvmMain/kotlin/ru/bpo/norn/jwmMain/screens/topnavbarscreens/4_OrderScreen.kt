@@ -123,8 +123,17 @@ fun OrderScreen(viewModel: NornViewModel) {
                 Text("📄 Сгенерировать приказ")
             }
 
+            // Информация о месте сохранения
+            if (allStudents.isNotEmpty()) {
+                Text(
+                    "💾 Приказ будет сохранен: ${viewModel.getOutputDirectory("Приказы").absolutePath}/Приказ_по_практике.docx",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
             // Статус генерации документа
-            val documentStatus by viewModel.documentGenerationStatus.collectAsState()
+            val documentStatus by viewModel.orderGenerationStatus.collectAsState()
             if (documentStatus.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Card(

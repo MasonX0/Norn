@@ -53,7 +53,7 @@ fun SettingsScreen(viewModel: NornViewModel) {
                 )
 
                 Text(
-                    "Установите папку, откуда будут начинаться поиски файлов во всех экранах",
+                    "Установите папку, откуда будут начинаться поиски файлов во всех экранах, а также куда будут сохраняться создаваемые документы (отчеты, направления, приказы)",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

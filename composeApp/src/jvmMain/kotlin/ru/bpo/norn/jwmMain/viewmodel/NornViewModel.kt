@@ -1087,17 +1087,29 @@ class NornViewModel {
      * Заменяет плейсхолдеры в Word документе
      */
     private fun replacePlaceholdersInWord(templateFile: File, student: Student, outputFile: File): Boolean {
+        return replacePlaceholdersInWordWithDirectionNumber(templateFile, student, outputFile, 1)
+    }
+
+    /**
+     * Заменяет плейсхолдеры в Word документе с передачей номера направления
+     */
+    private fun replacePlaceholdersInWordWithDirectionNumber(
+        templateFile: File,
+        student: Student,
+        outputFile: File,
+        directionNumber: Int
+    ): Boolean {
         return try {
             FileInputStream(templateFile).use { fis ->
                 XWPFDocument(fis).use { document ->
                     for (paragraph in document.paragraphs) {
-                        replaceInParagraph(paragraph, student)
+                        replaceInParagraph(paragraph, student, directionNumber)
                     }
                     for (table in document.tables) {
                         for (row in table.rows) {
                             for (cell in row.tableCells) {
                                 for (cellParagraph in cell.paragraphs) {
-                                    replaceInParagraph(cellParagraph, student)
+                                    replaceInParagraph(cellParagraph, student, directionNumber)
                                 }
                             }
                         }
@@ -1116,77 +1128,68 @@ class NornViewModel {
         }
     }
 
-    private fun replaceInParagraph(paragraph: XWPFParagraph, student: Student) {
+    /**
+     * Заменяет плейсхолдеры в тексте
+     */
+    private fun replacePlaceholdersInText(text: String, student: Student, directionNumber: Int): String {
+        val replacements = mapOf(
+            "{name}" to (student.name.ifBlank { "NULL" }),
+            "{group}" to (student.group.ifBlank { "NULL" }),
+            "{course}" to student.course.toString(),
+            "{c}" to student.course.toString(),
+            "{codeOfDirection}" to (student.codeOfDirection.ifBlank { "NULL" }),
+            "{nameOfDirection}" to (student.nameOfDirection.ifBlank { "NULL" }),
+            "{typeOfPractice}" to (student.typeOfPractice.ifBlank { "NULL" }),
+            "{nameOfPracticeBase}" to (student.nameOfPracticeBase.ifBlank { "NULL" }),
+            "{cityOfPractice}" to (student.cityOfPractice.ifBlank { "NULL" }),
+            "{periodOfPractice}" to (student.periodOfPractice.ifBlank { "NULL" }),
+            "{headOfPracticeFromDepartment}" to (student.headOfPracticeFromDepartment.ifBlank { "NULL" }),
+            "{headOfPracticeFromPracticeBase}" to (student.headOfPracticeFromPracticeBase.ifBlank { "NULL" }),
+            "{headPrac}" to (student.headOfPracticeFromPracticeBase.ifBlank { "NULL" }),
+            "{postOfHeadOfPracticeFromDepartment}" to (student.postOfHeadOfPracticeFromDepartment.ifBlank { "NULL" }),
+            "{postOfHeadOfPracticeFromPracticeBase}" to (student.postOfHeadOfPracticeFromPracticeBase.ifBlank { "NULL" }),
+            "{directorName}" to (student.directorName.ifBlank { "NULL" }),
+            "{directionNumber}" to directionNumber.toString(),
+            "{nameOfSpeciality}" to (student.nameOfSpeciality.ifBlank { "NULL" }),
+            "{codeOfSpeciality}" to (student.codeOfSpeciality.ifBlank { "NULL" }),
+            "{gradeForPractice}" to (student.gradeForPractice.ifBlank { "NULL" }),
+            "{practiceForm}" to (student.practiceForm.ifBlank { "NULL" }),
+            "{formOfStudy}" to (student.formOfStudy.ifBlank { "NULL" }),
+            // Даты - в модели Student их нет, поэтому пишем NULL
+            "{dataIaV}" to "NULL",
+            "{dataIaP}" to "NULL",
+            "{dataOtz}" to "NULL"
+        )
+
+        var result = text
+        replacements.forEach { (placeholder, value) ->
+            result = result.replace(placeholder, value)
+        }
+        return result
+    }
+
+    /**
+     * Заменяет плейсхолдеры в параграфе Word документа
+     */
+    private fun replaceInParagraph(
+        paragraph: XWPFParagraph,
+        student: Student,
+        directionNumber: Int = 1
+    ) {
         val text = paragraph.text
         if (text.contains("{") && text.contains("}")) {
-            val replacements = mapOf(
-                "{name}" to student.name,
-                "{group}" to student.group,
-                "{c}" to student.course.toString(),
-                "{typeOfPractice}" to student.typeOfPractice,
-                "{nameOfPracticeBase}" to student.nameOfPracticeBase,
-                "{cityOfPractice}" to (student.cityOfPractice ?: ""),
-                "{periodOfPractice}" to student.periodOfPractice,
-                "{headPrac}" to student.headOfPracticeFromPracticeBase,
-                "{headOfPracticeFromDepartment}" to student.headOfPracticeFromDepartment,
-                "{postOfHeadOfPracticeFromDepartment}" to student.postOfHeadOfPracticeFromDepartment,
-                "{dataIaV}" to "04.04.2025 г.",
-                "{dataIaP}" to "04.04.2025 г.",
-                "{dataOtz}" to "16.05.2025 г.",
-                "{codeOfDirection}" to student.codeOfDirection,
-                "{nameOfDirection}" to student.nameOfDirection,
-                "{directorName}" to student.directorName,
-            )
+            val newText = replacePlaceholdersInText(text, student, directionNumber)
 
-            val placeholderUnderlineMap = mutableMapOf<String, Boolean>()
-            replacements.keys.forEach { placeholder ->
-                if (text.contains(placeholder)) {
-                    val startIndex = text.indexOf(placeholder)
-                    val endIndex = startIndex + placeholder.length
-                    placeholderUnderlineMap[placeholder] = isTextUnderlined(paragraph, startIndex, endIndex)
-                }
-            }
-
+            // Удаляем все runs
             while (paragraph.runs.isNotEmpty()) {
                 paragraph.removeRun(0)
             }
 
-            var remainingText = text
-            while (remainingText.isNotEmpty()) {
-                val openBraceIndex = remainingText.indexOf("{")
-                val closeBraceIndex = remainingText.indexOf("}")
-
-                if (openBraceIndex != -1 && closeBraceIndex != -1 && openBraceIndex < closeBraceIndex) {
-                    val beforePlaceholder = remainingText.substring(0, openBraceIndex)
-                    val placeholder = remainingText.substring(openBraceIndex, closeBraceIndex + 1)
-                    val afterPlaceholder = remainingText.substring(closeBraceIndex + 1)
-
-                    if (beforePlaceholder.isNotEmpty()) {
-                        val run = paragraph.createRun()
-                        run.setText(beforePlaceholder)
-                        run.setFontSize(12)
-                        run.setFontFamily("Times New Roman")
-                    }
-
-                    val value = replacements[placeholder] ?: placeholder
-                    val run = paragraph.createRun()
-                    run.setText(value)
-                    run.setFontSize(12)
-                    run.setFontFamily("Times New Roman")
-
-                    if (placeholderUnderlineMap[placeholder] == true) {
-                        run.setUnderline(org.apache.poi.xwpf.usermodel.UnderlinePatterns.SINGLE)
-                    }
-
-                    remainingText = afterPlaceholder
-                } else {
-                    val run = paragraph.createRun()
-                    run.setText(remainingText)
-                    run.setFontSize(12)
-                    run.setFontFamily("Times New Roman")
-                    break
-                }
-            }
+            // Создаем новый run с замененным текстом
+            val newRun = paragraph.createRun()
+            newRun.setText(newText)
+            newRun.setFontSize(12)
+            newRun.setFontFamily("Times New Roman")
         }
     }
 
@@ -1818,11 +1821,16 @@ class NornViewModel {
                 val outputFile = outputFolder.resolve(fileName)
 
                 try {
-                    // Используем рабочий метод для одного студента
-                    val success = replacePlaceholdersInWord(templateFile, student, outputFile)
+                    // Используем рабочий метод для одного студента с правильным номером направления
+                    val success = replacePlaceholdersInWordWithDirectionNumber(
+                        templateFile,
+                        student,
+                        outputFile,
+                        index + 1
+                    )
                     if (success) {
                         successCount++
-                        println("✅ Создан документ для студента: ${student.name}")
+                        println("✅ Создан документ для студента: ${student.name} (направление №${index + 1})")
                     } else {
                         failCount++
                         println("❌ Ошибка создания документа для студента: ${student.name}")

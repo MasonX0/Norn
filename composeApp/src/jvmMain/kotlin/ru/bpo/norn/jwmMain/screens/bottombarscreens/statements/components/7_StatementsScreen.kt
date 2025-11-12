@@ -10,10 +10,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import ru.bpo.norn.jwmMain.viewmodel.NornViewModel
+import ui.components.StatementsPDFLoader
+import ui.components.DocumentGenerator
+import ui.common.FileStatusCard
 import java.io.File
 import javax.swing.JFileChooser
 import javax.swing.filechooser.FileNameExtensionFilter
 
+/**
+ * Основной экран управления заявлениями
+ * Позволяет загружать PDF файлы с заявлениями и генерировать документы
+ * В настоящее время находится в разработке
+ */
 @Composable
 fun StatementsScreen(viewModel: NornViewModel) {
     val statementsFile by viewModel.statementsFile.collectAsState()

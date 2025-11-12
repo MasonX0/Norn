@@ -44,6 +44,7 @@ fun Enterprises(viewModel: NornViewModel) {
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(15.dp)
     ) {
+        // Заголовок экрана
         Text(
             "Чтение списка предприятий из TXT файла с руководителями",
             color = MaterialTheme.colorScheme.onSurface,
@@ -248,7 +249,7 @@ fun Enterprises(viewModel: NornViewModel) {
             }
         }
 
-        // Отображение информации о файле
+        // Информация о загруженном файле
         Column(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.Start

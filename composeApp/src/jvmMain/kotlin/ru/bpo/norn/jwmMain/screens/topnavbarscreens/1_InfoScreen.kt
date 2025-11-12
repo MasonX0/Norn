@@ -609,7 +609,7 @@ private fun EditFormContent(
                 modifier = Modifier.fillMaxWidth(),
                 colors = fieldColors(nameOfPracticeBase)
             )
-            
+
             // Выпадающий список руководителей практики
             if (selectedEnterprise != null && selectedEnterprise.supervisors.isNotEmpty()) {
                 SupervisorDropdown(

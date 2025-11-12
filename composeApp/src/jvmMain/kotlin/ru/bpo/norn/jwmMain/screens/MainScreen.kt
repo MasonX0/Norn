@@ -31,22 +31,20 @@ fun MainScreen(viewModel: NornViewModel) {
             )
         },
         content = { paddingValues ->
-            LazyColumn(
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
             ) {
-                item {
-                    when (currentScreen) {
-                        is Screen.Screen1 -> InfoScreen(viewModel = viewModel)
-                        is Screen.Screen2 -> SummaryReport(viewModel = viewModel)
-                        is Screen.Screen3 -> DestinationScreen(viewModel = viewModel)
-                        is Screen.Screen4 -> OrderScreen(viewModel = viewModel)
-                        is Screen.Screen5 -> Enterprises(viewModel = viewModel)
-                        is Screen.Screen6 -> StudentsListScreen(viewModel = viewModel)
-                        is Screen.Screen7 -> StatementsScreen(viewModel = viewModel)
-                        is Screen.Screen8 -> SettingsScreen(viewModel = viewModel)
-                    }
+                when (currentScreen) {
+                    is Screen.Screen1 -> InfoScreen(viewModel = viewModel)
+                    is Screen.Screen2 -> SummaryReport(viewModel = viewModel)
+                    is Screen.Screen3 -> DestinationScreen(viewModel = viewModel)
+                    is Screen.Screen4 -> OrderScreen(viewModel = viewModel)
+                    is Screen.Screen5 -> Enterprises(viewModel = viewModel)
+                    is Screen.Screen6 -> StudentsListScreen(viewModel = viewModel)
+                    is Screen.Screen7 -> StatementsScreen(viewModel = viewModel)
+                    is Screen.Screen8 -> SettingsScreen(viewModel = viewModel)
                 }
             }
         }

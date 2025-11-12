@@ -11,6 +11,7 @@ import ru.bpo.norn.commonMain.models.Group
 import ru.bpo.norn.commonMain.models.Student
 import ru.bpo.norn.commonMain.models.Enterprise
 import ru.bpo.norn.commonMain.models.PracticeSupervisor
+import ru.bpo.norn.commonMain.models.SummaryReportData
 import ru.bpo.norn.commonMain.repository.NornRepository
 import viewmodel.Screen
 import java.io.File
@@ -161,14 +162,56 @@ class NornViewModel {
                 emptyList()
             }
             
+            // Определяем тип предприятия по названию
+            val isForeign = isEnterpriseTypeMatch(name, city, "зарубежное")
+            val isSoluniTyulyukInzer = isEnterpriseTypeMatch(name, city, "солуни_тюлюк_инзер")
+            val isDepartment = isEnterpriseTypeMatch(name, city, "кафедра")
+            val isUniversitySubdivision = isEnterpriseTypeMatch(name, city, "структурное_подразделение")
+            val isBaseDepartment = isEnterpriseTypeMatch(name, city, "базовая_кафедра")
+            
             Enterprise(
                 name = name,
                 city = city,
-                supervisors = supervisors
+                supervisors = supervisors,
+                isForeign = isForeign,
+                isSoluniTyulyukInzer = isSoluniTyulyukInzer,
+                isDepartment = isDepartment,
+                isUniversitySubdivision = isUniversitySubdivision,
+                isBaseDepartment = isBaseDepartment
             )
         } catch (e: Exception) {
             println("❌ Ошибка парсинга строки '$line': ${e.message}")
             null
+        }
+    }
+
+    /**
+     * Определяет тип предприятия по ключевым словам
+     */
+    private fun isEnterpriseTypeMatch(name: String, city: String?, type: String): Boolean {
+        val fullText = "$name ${city ?: ""}".lowercase()
+        
+        return when (type) {
+            "зарубежное" -> {
+                // Примеры зарубежных предприятий или городов
+                listOf("германия", "китай", "сша", "франция", "япония", "корея", "индия", "турция", "казахстан", "беларусь")
+                    .any { fullText.contains(it) }
+            }
+            "солуни_тюлюк_инзер" -> {
+                listOf("солуни", "тюлюк", "инзер").any { fullText.contains(it) }
+            }
+            "кафедра" -> {
+                listOf("кафедра", "каф.", "втик", "вычислительная техника", "инженерная кибернетика")
+                    .any { fullText.contains(it) }
+            }
+            "структурное_подразделение" -> {
+                listOf("фгбоу", "угнту", "университет", "институт", "филиал", "факультет")
+                    .any { fullText.contains(it) } && !fullText.contains("кафедра")
+            }
+            "базовая_кафедра" -> {
+                listOf("базовая кафедра", "базовая каф").any { fullText.contains(it) }
+            }
+            else -> false
         }
     }
 
@@ -541,8 +584,28 @@ class NornViewModel {
         _selectedStudent.value = null
     }
 
-    // ==================== 5. ГЕНЕРАЦИЯ ДОКУМЕНТОВ ====================
+    // ==================== 5. ДАННЫЕ ОТЧЕТА ПО ПРАКТИКЕ ====================
+    
+    private val _summaryReportData = MutableStateFlow(SummaryReportData())
+    val summaryReportData: StateFlow<SummaryReportData> = _summaryReportData.asStateFlow()
+    
+    fun updateSummaryReportData(data: SummaryReportData) {
+        _summaryReportData.value = data
+    }
 
+    /**
+     * Подсчитывает статистику студентов по группам и типам предприятий
+     */
+    fun getGroupStatistics(): Map<String, ru.bpo.norn.commonMain.models.GroupStatistics> {
+        val allGroups = repository.groups.value
+        val allEnterprises = _enterprisesList.value
+        
+        return allGroups.associate { group ->
+            group.name to group.calculateStatistics(allEnterprises)
+        }
+    }
+
+    // ==================== 6. ГЕНЕРАЦИЯ ДОКУМЕНТОВ ====================
     /**
      * Основная функция для генерации документов
      */
@@ -959,4 +1022,164 @@ class NornViewModel {
     fun getMockStudent(): Student {
         return mockStudent
     }
+
+    /**
+     * Генерирует отчет по практике в формате Word
+     */
+    fun generateSummaryReport(
+        templateFile: File, 
+        reportData: SummaryReportData,
+        groupStatistics: Map<String, ru.bpo.norn.commonMain.models.GroupStatistics>
+    ): Boolean {
+        return try {
+            val originalName = templateFile.nameWithoutExtension
+            val extension = templateFile.extension
+            val outputFile = File(
+                templateFile.parent,
+                "${originalName}_отчет_по_практике.$extension"
+            )
+
+            val success = createSummaryReportDocument(templateFile, reportData, groupStatistics, outputFile)
+
+            if (success) {
+                println("✅ Отчет создан: ${outputFile.absolutePath}")
+                true
+            } else {
+                println("❌ Ошибка при создании отчета")
+                false
+            }
+        } catch (e: Exception) {
+            println("❌ Исключение при создании отчета: ${e.message}")
+            e.printStackTrace()
+            false
+        }
+    }
+
+    /**
+     * Создает Word документ с отчетом по практике
+     */
+    private fun createSummaryReportDocument(
+        templateFile: File,
+        reportData: SummaryReportData,
+        groupStatistics: Map<String, ru.bpo.norn.commonMain.models.GroupStatistics>,
+        outputFile: File
+    ): Boolean {
+        return try {
+            FileInputStream(templateFile).use { fis ->
+                XWPFDocument(fis).use { document ->
+                    // Заменяем плейсхолдеры в тексте
+                    for (paragraph in document.paragraphs) {
+                        replacePlaceholdersInSummaryReport(paragraph, reportData, groupStatistics)
+                    }
+                    
+                    // Заменяем плейсхолдеры в таблицах
+                    for (table in document.tables) {
+                        for (row in table.rows) {
+                            for (cell in row.tableCells) {
+                                for (cellParagraph in cell.paragraphs) {
+                                    replacePlaceholdersInSummaryReport(cellParagraph, reportData, groupStatistics)
+                                }
+                            }
+                        }
+                    }
+                    
+                    FileOutputStream(outputFile).use { fos ->
+                        document.write(fos)
+                    }
+                }
+            }
+            true
+        } catch (e: Exception) {
+            println("❌ Ошибка при создании отчета: ${e.message}")
+            e.printStackTrace()
+            false
+        }
+    }
+
+    /**
+     * Заменяет плейсхолдеры в параграфе для отчета по практике
+     */
+    private fun replacePlaceholdersInSummaryReport(
+        paragraph: XWPFParagraph,
+        reportData: SummaryReportData,
+        groupStatistics: Map<String, ru.bpo.norn.commonMain.models.GroupStatistics>
+    ) {
+        val text = paragraph.text
+        if (text.contains("{") && text.contains("}")) {
+            val replacements = mutableMapOf<String, String>()
+            
+            // Основные данные отчета
+            replacements["{departmentName}"] = reportData.departmentName
+            replacements["{academicYear}"] = reportData.academicYear
+            replacements["{field2_excursions}"] = reportData.field2_excursions
+            replacements["{field3_teachers}"] = reportData.field3_teachers
+            replacements["{field4_absentStudents}"] = reportData.field4_absentStudents
+            replacements["{field5_additionalInfo}"] = reportData.field5_additionalInfo
+            replacements["{field6_preliminaryEvents}"] = reportData.field6_preliminaryEvents
+            replacements["{field8_shortcomings}"] = reportData.field8_shortcomings
+            replacements["{field9_improvements}"] = reportData.field9_improvements
+            replacements["{field10_conclusion}"] = reportData.field10_conclusion
+            
+            // Статистика по группам
+            groupStatistics.forEach { (groupName, stats) ->
+                val groupKey = groupName.replace("-", "_").replace(",", "_")
+                replacements["{${groupKey}_total}"] = stats.totalStudents.toString()
+                replacements["{${groupKey}_foreign_enterprises}"] = stats.foreignEnterprises.toString()
+                replacements["{${groupKey}_rf_enterprises}"] = stats.rfEnterprises.toString()
+                replacements["{${groupKey}_soluni}"] = stats.soluniTyulyukInzer.toString()
+                replacements["{${groupKey}_department}"] = stats.departmentStudents.toString()
+                replacements["{${groupKey}_subdivisions}"] = stats.universitySubdivisions.toString()
+                replacements["{${groupKey}_base_departments}"] = stats.baseDepartments.toString()
+                replacements["{${groupKey}_paid}"] = stats.paidPracticeStudents.toString()
+                replacements["{${groupKey}_foreign_students}"] = stats.foreignStudents.toString()
+                replacements["{${groupKey}_excellent}"] = stats.excellentGrades.toString()
+                replacements["{${groupKey}_good}"] = stats.goodGrades.toString()
+                replacements["{${groupKey}_satisfactory}"] = stats.satisfactoryGrades.toString()
+                replacements["{${groupKey}_not_defended}"] = stats.notDefended.toString()
+            }
+
+            // Заменяем текст
+            var remainingText = text
+            while (paragraph.runs.isNotEmpty()) {
+                paragraph.removeRun(0)
+            }
+
+            while (remainingText.isNotEmpty()) {
+                val openBraceIndex = remainingText.indexOf("{")
+                val closeBraceIndex = remainingText.indexOf("}")
+
+                if (openBraceIndex != -1 && closeBraceIndex != -1 && openBraceIndex < closeBraceIndex) {
+                    val beforePlaceholder = remainingText.substring(0, openBraceIndex)
+                    val placeholder = remainingText.substring(openBraceIndex, closeBraceIndex + 1)
+                    val afterPlaceholder = remainingText.substring(closeBraceIndex + 1)
+
+                    if (beforePlaceholder.isNotEmpty()) {
+                        val run = paragraph.createRun()
+                        run.setText(beforePlaceholder)
+                        run.setFontSize(12)
+                        run.setFontFamily("Times New Roman")
+                    }
+
+                    val value = replacements[placeholder] ?: placeholder
+                    val run = paragraph.createRun()
+                    run.setText(value)
+                    run.setFontSize(12)
+                    run.setFontFamily("Times New Roman")
+
+                    remainingText = afterPlaceholder
+                } else {
+                    val run = paragraph.createRun()
+                    run.setText(remainingText)
+                    run.setFontSize(12)
+                    run.setFontFamily("Times New Roman")
+                    break
+                }
+            }
+        }
+    }
+
+    /**
+     * Основная функция для генерации документов
+     */
 }
+

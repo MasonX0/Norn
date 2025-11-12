@@ -11,7 +11,22 @@ data class Enterprise(
     val city: String?,
 
     /** Список руководителей практики от базы практики */
-    val supervisors: List<PracticeSupervisor> = emptyList()
+    val supervisors: List<PracticeSupervisor> = emptyList(),
+
+    /** Предприятие зарубежное */
+    val isForeign: Boolean = false,
+
+    /** Солуни, Тюлюк, Инзер */
+    val isSoluniTyulyukInzer: Boolean = false,
+
+    /** Кафедра */
+    val isDepartment: Boolean = false,
+
+    /** Структурное подразделение вуза */
+    val isUniversitySubdivision: Boolean = false,
+
+    /** Базовая кафедра */
+    val isBaseDepartment: Boolean = false
 ) {
     /**
      * Форматированное название с городом для отображения

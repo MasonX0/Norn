@@ -210,6 +210,31 @@ fun Enterprises(viewModel: NornViewModel) {
                                             color = MaterialTheme.colorScheme.error
                                         )
                                     }
+
+                                    // Отображение типов предприятия
+                                    val enterpriseTypes = mutableListOf<String>()
+                                    if (enterprise.isForeign) enterpriseTypes.add("🌍 Зарубежное")
+                                    if (enterprise.isSoluniTyulyukInzer) enterpriseTypes.add("🏔️ Солуни/Тюлюк/Инзер")
+                                    if (enterprise.isDepartment) enterpriseTypes.add("🎓 Кафедра")
+                                    if (enterprise.isUniversitySubdivision) enterpriseTypes.add("🏛️ Структурное подразделение")
+                                    if (enterprise.isBaseDepartment) enterpriseTypes.add("🏭 Базовая кафедра")
+
+                                    if (enterpriseTypes.isNotEmpty()) {
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(
+                                            "🏢 Тип предприятия:",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        enterpriseTypes.forEach { type ->
+                                            Text(
+                                                "• $type",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.tertiary,
+                                                modifier = Modifier.padding(start = 8.dp)
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -263,124 +288,211 @@ private fun EnterpriseEditDialog(
     onSave: (Enterprise) -> Unit,
     onDismiss: () -> Unit
 ) {
+    // Локальные состояния для булевых полей
+    var isForeign by remember { mutableStateOf(enterprise?.isForeign ?: false) }
+    var isSoluniTyulyukInzer by remember { mutableStateOf(enterprise?.isSoluniTyulyukInzer ?: false) }
+    var isDepartment by remember { mutableStateOf(enterprise?.isDepartment ?: false) }
+    var isUniversitySubdivision by remember { mutableStateOf(enterprise?.isUniversitySubdivision ?: false) }
+    var isBaseDepartment by remember { mutableStateOf(enterprise?.isBaseDepartment ?: false) }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
             Text("✏️ Редактировать предприятие")
         },
         text = {
-            LazyColumn(
-                modifier = Modifier.height(500.dp),
+            Column(
+                modifier = Modifier
+                    .width(600.dp)
+                    .heightIn(max = 600.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                item {
-                    Text(
-                        "Предприятие: ${enterprise?.name ?: ""}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
+                Text(
+                    "Предприятие: ${enterprise?.name ?: ""}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
 
-                    // Редактирование города
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                // Редактирование города
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            "🏙️ Город:",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary
                         )
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
+                        OutlinedTextField(
+                            value = cityText,
+                            onValueChange = onCityTextChange,
+                            label = { Text("Город") },
+                            placeholder = { Text("Например: Уфа, Москва, Санкт-Петербург") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+
+                // Булевые поля предприятия
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            "🏢 Тип предприятия:",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = isForeign,
+                                onCheckedChange = { isForeign = it }
+                            )
+                            Text("🌍 Зарубежное", modifier = Modifier.weight(1f))
+                        }
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = isSoluniTyulyukInzer,
+                                onCheckedChange = { isSoluniTyulyukInzer = it }
+                            )
+                            Text("🏔️ Солуни/Тюлюк/Инзер", modifier = Modifier.weight(1f))
+                        }
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = isDepartment,
+                                onCheckedChange = { isDepartment = it }
+                            )
+                            Text("🎓 Кафедра", modifier = Modifier.weight(1f))
+                        }
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = isUniversitySubdivision,
+                                onCheckedChange = { isUniversitySubdivision = it }
+                            )
+                            Text("🏛️ Структурное подразделение", modifier = Modifier.weight(1f))
+                        }
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = isBaseDepartment,
+                                onCheckedChange = { isBaseDepartment = it }
+                            )
+                            Text("🏭 Базовая кафедра", modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
+
+                // Управление руководителями
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Text(
-                                "🏙️ Город:",
+                                "👨‍💼 Руководители практики:",
                                 style = MaterialTheme.typography.titleSmall,
                                 color = MaterialTheme.colorScheme.primary
                             )
-                            OutlinedTextField(
-                                value = cityText,
-                                onValueChange = onCityTextChange,
-                                label = { Text("Город") },
-                                placeholder = { Text("Например: Уфа, Москва, Санкт-Петербург") },
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-                    }
-                }
-
-                item {
-                    // Управление руководителями
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
-                        )
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    "👨‍💼 Руководители практики:",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                                Button(
-                                    onClick = {
-                                        val newSupervisor = PracticeSupervisor(
-                                            fullName = "Новый руководитель",
-                                            position = "должность"
-                                        )
-                                        onSupervisorsListChange(supervisorsList + newSupervisor)
-                                    },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.primary
+                            Button(
+                                onClick = {
+                                    val newSupervisor = PracticeSupervisor(
+                                        fullName = "Новый руководитель",
+                                        position = "должность"
                                     )
-                                ) {
-                                    Text("➕ Добавить")
-                                }
+                                    onSupervisorsListChange(supervisorsList + newSupervisor)
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary
+                                )
+                            ) {
+                                Text("➕ Добавить")
                             }
                         }
-                    }
-                }
 
-                // Список руководителей для редактирования
-                itemsIndexed(supervisorsList) { index, supervisor ->
-                    SupervisorEditCard(
-                        supervisor = supervisor,
-                        onSupervisorChange = { updatedSupervisor ->
-                            val updatedList = supervisorsList.toMutableList()
-                            updatedList[index] = updatedSupervisor
-                            onSupervisorsListChange(updatedList)
-                        },
-                        onDelete = {
-                            val updatedList = supervisorsList.toMutableList()
-                            updatedList.removeAt(index)
-                            onSupervisorsListChange(updatedList)
-                        }
-                    )
-                }
-
-                if (supervisorsList.isEmpty()) {
-                    item {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer
-                            )
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(12.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
+                        // Список руководителей в ограниченном LazyColumn
+                        if (supervisorsList.isNotEmpty()) {
+                            LazyColumn(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(200.dp), // Фиксированная высота для избежания бесконечных ограничений
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Text(
-                                    "❌ Нет руководителей",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                itemsIndexed(supervisorsList) { index, supervisor ->
+                                    SupervisorEditCard(
+                                        supervisor = supervisor,
+                                        onSupervisorChange = { updatedSupervisor ->
+                                            val updatedList = supervisorsList.toMutableList()
+                                            updatedList[index] = updatedSupervisor
+                                            onSupervisorsListChange(updatedList)
+                                        },
+                                        onDelete = {
+                                            val updatedList = supervisorsList.toMutableList()
+                                            updatedList.removeAt(index)
+                                            onSupervisorsListChange(updatedList)
+                                        }
+                                    )
+                                }
+                            }
+                        } else {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer
                                 )
-                                Text(
-                                    "Добавьте хотя бы одного руководителя",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onErrorContainer
-                                )
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(12.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        "❌ Нет руководителей",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                    Text(
+                                        "Добавьте хотя бы одного руководителя",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                }
                             }
                         }
                     }
@@ -393,7 +505,12 @@ private fun EnterpriseEditDialog(
                     enterprise?.let { ent ->
                         val updatedEnterprise = ent.copy(
                             city = cityText.takeIf { it.isNotBlank() },
-                            supervisors = supervisorsList
+                            supervisors = supervisorsList,
+                            isForeign = isForeign,
+                            isSoluniTyulyukInzer = isSoluniTyulyukInzer,
+                            isDepartment = isDepartment,
+                            isUniversitySubdivision = isUniversitySubdivision,
+                            isBaseDepartment = isBaseDepartment
                         )
                         onSave(updatedEnterprise)
                     }

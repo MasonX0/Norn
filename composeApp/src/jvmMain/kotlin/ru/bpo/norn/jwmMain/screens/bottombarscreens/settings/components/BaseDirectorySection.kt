@@ -1,4 +1,4 @@
-package ui.components
+package ru.bpo.norn.jwmMain.screens.bottombarscreens.settings.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
@@ -19,9 +19,11 @@ import javax.swing.JFileChooser
 @Composable
 fun BaseDirectorySection(
     viewModel: NornViewModel,
-    baseDirectory: File?,
     modifier: Modifier = Modifier
 ) {
+    // Получаем текущую базовую директорию из ViewModel
+    val baseDirectory by viewModel.baseDirectory.collectAsState()
+
     Card(
         modifier = modifier.fillMaxWidth(),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)

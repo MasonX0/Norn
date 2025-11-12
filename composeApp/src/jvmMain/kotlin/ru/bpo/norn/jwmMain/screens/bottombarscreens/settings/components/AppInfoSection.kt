@@ -1,4 +1,4 @@
-package ui.components
+package ru.bpo.norn.jwmMain.screens.bottombarscreens.settings.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*

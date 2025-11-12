@@ -14,9 +14,17 @@ import java.io.File
 import javax.swing.JFileChooser
 import javax.swing.filechooser.FileNameExtensionFilter
 
+/**
+ * Экран работы с ведомостями (в разработке)
+ * Позволяет выбрать PDF файл ведомости и сгенерировать документ
+ * @param viewModel ViewModel для управления файлами ведомостей
+ */
 @Composable
 fun StatementsScreen(viewModel: NornViewModel) {
+    // Подписка на состояние выбранного файла ведомости
     val statementsFile by viewModel.statementsFile.collectAsState()
+
+    // Локальные состояния для отслеживания процесса генерации
     var generationResult by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
 
@@ -27,37 +35,39 @@ fun StatementsScreen(viewModel: NornViewModel) {
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(15.dp)
     ) {
+        // Заголовок экрана с пометкой о статусе разработки
         Text(
             "В РАЗРАБОТКЕ",
             color = MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.bodyLarge
         )
 
-        // Кнопка выбора PDF файла
-        Button(onClick = {
+        // Кнопка выбора PDF файла с ведомостями
+        Button(
+            onClick = {
             val fileChooser = JFileChooser().apply {
                 currentDirectory = viewModel.getStartDirectory()
                 dialogTitle = "Выберите PDF документ"
                 addChoosableFileFilter(FileNameExtensionFilter("PDF документы (*.pdf)", "pdf"))
                 fileFilter = FileNameExtensionFilter("PDF документы", "pdf")
-                // Запрещаем выбор других типов файлов
+                // Запрещаем выбор других типов файлов кроме PDF
                 isAcceptAllFileFilterUsed = false
             }
 
             if (fileChooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
                 viewModel.selectStatementsFile(fileChooser.selectedFile)
             }
-        },colors = ButtonColors(
+        }, colors = ButtonColors(
             containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
             contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
             disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
             disabledContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-        ), border = BorderStroke(1.dp,MaterialTheme.colorScheme.outline)
+        ), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
         ) {
             Text("Выбрать PDF документ\n(ведомости)")
         }
 
-        // Кнопка генерации документа
+        // Кнопка генерации документа на основе выбранного файла
         Button(
             onClick = {
                 isLoading = true
@@ -86,7 +96,7 @@ fun StatementsScreen(viewModel: NornViewModel) {
             Text(if (isLoading) "Генерация..." else "Сгенерировать документ")
         }
 
-        // Отображение состояния
+        // Информация о состоянии приложения и выбранном файле
         Column(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.Start
@@ -96,7 +106,10 @@ fun StatementsScreen(viewModel: NornViewModel) {
                 style = MaterialTheme.typography.titleMedium
             )
 
+            // Информация о выбранном PDF файле
             Text("PDF документ: ${statementsFile?.name ?: "не выбран"}")
+
+            // Дополнительная информация о файле если он выбран
             statementsFile?.let { file ->
                 Text("Путь: ${file.absolutePath}")
                 Text("Размер: ${file.length() / 1024} KB")
@@ -104,6 +117,7 @@ fun StatementsScreen(viewModel: NornViewModel) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Отображение результата генерации документа
             generationResult?.let { result ->
                 Text(
                     result,

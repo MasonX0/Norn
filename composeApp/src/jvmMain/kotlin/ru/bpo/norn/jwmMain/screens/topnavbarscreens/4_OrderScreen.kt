@@ -16,13 +16,21 @@ import ru.bpo.norn.commonMain.models.OrderData
 import ru.bpo.norn.commonMain.models.Student
 import ru.bpo.norn.jwmMain.viewmodel.NornViewModel
 
+/**
+ * Экран генерации приказа по практике
+ * Позволяет настроить данные приказа и сгенерировать документ Word
+ * @param viewModel ViewModel для управления данными приказа и студентов
+ */
 @Composable
 fun OrderScreen(viewModel: NornViewModel) {
+    // Подписка на состояния из ViewModel
     val orderData by viewModel.orderData.collectAsState()
     val groups by viewModel.groups.collectAsState()
 
-    // Получаем всех студентов из всех групп для статистики
+    // Получаем всех студентов из всех групп для статистики и группировки
     val allStudents = groups.flatMap { it.students }
+    
+    // Группировка студентов по типу финансирования для разных секций приказа
     val budgetStudents = allStudents.filter {
         it.formOfStudy.contains("бюджет", ignoreCase = true) ||
                 (!it.withPayment && !it.formOfStudy.contains("платн", ignoreCase = true) && 
@@ -196,6 +204,10 @@ fun OrderScreen(viewModel: NornViewModel) {
     }
 }
 
+/**
+ * Форма редактирования полей приказа
+ * Содержит поля для настройки заголовков, оснований и подписей
+ */
 @Composable
 fun OrderEditForm(
     orderData: OrderData,

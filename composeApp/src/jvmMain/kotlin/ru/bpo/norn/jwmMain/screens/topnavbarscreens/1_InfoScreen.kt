@@ -17,13 +17,21 @@ import ru.bpo.norn.commonMain.models.Enterprise
 import ru.bpo.norn.commonMain.models.PracticeSupervisor
 import ru.bpo.norn.jwmMain.viewmodel.NornViewModel
 
+/**
+ * Основной экран информации и управления данными студентов
+ * Позволяет выбирать группы, просматривать студентов и редактировать их данные
+ * @param viewModel ViewModel для управления данными студентов и групп
+ */
 @Composable
 fun InfoScreen(viewModel: NornViewModel) {
+    // Подписка на состояния из ViewModel
     val groups by viewModel.groups.collectAsState()
     val selectedGroup by viewModel.selectedGroup.collectAsState()
     val selectedStudent by viewModel.selectedStudent.collectAsState()
     val showEditDialog by viewModel.showStudentEditDialog.collectAsState()
     val enterprisesList by viewModel.enterprisesList.collectAsState()
+
+    // Локальные состояния для диалогов
     var showGroupDialog by remember { mutableStateOf(false) }
     var showGroupEditDialog by remember { mutableStateOf(false) }
 
@@ -34,152 +42,43 @@ fun InfoScreen(viewModel: NornViewModel) {
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(15.dp)
     ) {
+        // Заголовок экрана
         Text("Панель управления данными студентов", style = MaterialTheme.typography.headlineSmall)
 
-        // Выбор группы
+        // Секция выбора группы
         if (groups.isNotEmpty()) {
-            Card(modifier = Modifier.fillMaxWidth(),
-                border= BorderStroke(width = 1.dp, color = MaterialTheme.colorScheme.outline)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("🎓 Выберите группу:", style = MaterialTheme.typography.titleMedium)
-
-                    var expanded by remember { mutableStateOf(false) }
-                    var selectedGroupName by remember {
-                        mutableStateOf(selectedGroup?.name ?: "Выберите группу")
-                    }
-
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        OutlinedTextField(
-                            modifier = Modifier.fillMaxWidth(),
-                            readOnly = true,
-                            value = selectedGroupName,
-                            onValueChange = {},
-                            label = { Text("Группа") },
-                            trailingIcon = {
-                                TextButton(onClick = { expanded = !expanded }) {
-                                    Text(if (expanded) "▲" else "▼")
-                                }
-                            }
-                        )
-                        DropdownMenu(
-                            expanded = expanded,
-                            onDismissRequest = { expanded = false },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            groups.forEach { group ->
-                                DropdownMenuItem(
-                                    text = {
-                                        Text("${group.name} (${group.students.size} студентов)")
-                                    },
-                                    onClick = {
-                                        viewModel.selectGroup(group)
-                                        selectedGroupName = group.name
-                                        expanded = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
-            }
+            GroupSelectionSection(
+                groups = groups,
+                selectedGroup = selectedGroup,
+                onGroupSelect = { viewModel.selectGroup(it) }
+            )
         }
 
+        // Секция информации о выбранной группе
         selectedGroup?.let { group ->
-            Card(modifier = Modifier.fillMaxWidth(),
-                border= BorderStroke(width = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text("🎓 Группа: ${group.name}", style = MaterialTheme.typography.titleMedium)
-                            Text("Студентов: ${group.students.size}")
-                            Text("Направление: ${group.nameOfDirection}")
-                            Text("Код направления: ${group.codeOfDirection}")
-                        }
-                        Column {
-                            Button(onClick = { showGroupDialog = true }) {
-                                Text("📝 Заполнить для группы")
-                            }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Button(
-                                onClick = { showGroupEditDialog = true },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.secondary
-                                )
-                            ) {
-                                Text("⚙️ Изменить группу")
-                            }
-                        }
-                    }
-                }
-            }
+            GroupInfoSection(
+                group = group,
+                onGroupFillClick = { showGroupDialog = true },
+                onGroupEditClick = { showGroupEditDialog = true }
+            )
 
-            Card(modifier = Modifier.fillMaxWidth(),
-                border= BorderStroke(width = 2.dp, color = MaterialTheme.colorScheme.primary)) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("👤 Список студентов:", modifier=Modifier.padding(bottom=10.dp),style = MaterialTheme.typography.titleMedium)
-                    Divider(
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                        thickness = 1.dp,
-                        modifier = Modifier.padding(bottom = 10.dp)
-                    )
-                    LazyColumn(modifier = Modifier.height(300.dp)) {
-                        items(group.students) { student ->
-                            Card(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                                onClick = { viewModel.selectStudentForEditing(student) },
-                                border= BorderStroke(width = 1.dp, color = MaterialTheme.colorScheme.tertiary)
-                            ) {
-                                Column(modifier = Modifier.padding(16.dp)) {
-                                    Text(student.name, style = MaterialTheme.typography.bodyMedium)
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text("Курс: ${student.course}")
-                                        Text("Группа: ${student.group}")
-                                    }
-                                    Text("База: ${student.nameOfPracticeBase}")
-                                    Text("Город: ${student.cityOfPractice}")
-                                    Text("Оценка: ${student.gradeForPractice}")
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            // Список студентов выбранной группы
+            StudentsListSection(
+                group = group,
+                onStudentSelect = { viewModel.selectStudentForEditing(it) }
+            )
         }
+
+        // Заглушка когда нет групп
         if (groups.isEmpty()) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    "📝 Нет загруженных групп",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    "Перейдите на экран 'Списки студентов' чтобы загрузить группы",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            NoGroupsPlaceholder()
         }
     }
-    }
 
+    // Диалог массового заполнения данных группы
     if (showGroupDialog) {
         selectedGroup?.let { group ->
-            GroupEditDialog(
+            GroupFillDialog(
                 enterprisesList = enterprisesList,
                 viewModel = viewModel,
                 currentGroup = group,
@@ -188,6 +87,7 @@ fun InfoScreen(viewModel: NornViewModel) {
         }
     }
 
+    // Диалог редактирования параметров группы
     if (showGroupEditDialog) {
         selectedGroup?.let { group ->
             GroupParametersEditDialog(
@@ -198,6 +98,7 @@ fun InfoScreen(viewModel: NornViewModel) {
         }
     }
 
+    // Диалог редактирования отдельного студента
     if (showEditDialog) {
         StudentEditDialog(
             student = selectedStudent,
@@ -211,13 +112,18 @@ fun InfoScreen(viewModel: NornViewModel) {
     }
 }
 
+/**
+ * Диалог массового заполнения данных для всей группы
+ * Позволяет заполнить одинаковые поля для всех студентов группы
+ */
 @Composable
-private fun GroupEditDialog(
+private fun GroupFillDialog(
     enterprisesList: List<Enterprise>,
     viewModel: NornViewModel,
     currentGroup: Group,
     onDismiss: () -> Unit
 ) {
+    // Состояния для всех полей, которые можно заполнить
     var selectedEnterprise by remember { mutableStateOf<Enterprise?>(null) }
     var nameOfPracticeBase by remember { mutableStateOf("") }
     var typeOfPractice by remember { mutableStateOf("") }
@@ -238,7 +144,7 @@ private fun GroupEditDialog(
     var isPaidPractice by remember { mutableStateOf(false) }
     var gradeForPractice by remember { mutableStateOf("") }
 
-    // Флаги: поле было задано (даже если стало пустым)
+    // Флаги для отслеживания измененных полей (только измененные поля будут применены)
     var isNameOfPracticeBaseSet by remember { mutableStateOf(false) }
     var isTypeOfPracticeSet by remember { mutableStateOf(false) }
     var isPeriodOfPracticeSet by remember { mutableStateOf(false) }
@@ -267,6 +173,8 @@ private fun GroupEditDialog(
                 thickness = 1.dp,
                 modifier = Modifier.padding(bottom = 10.dp)
             )
+
+            // Универсальная форма редактирования
             EditFormContent(
                 selectedEnterprise = selectedEnterprise,
                 onEnterpriseSelected = { enterprise ->
@@ -369,49 +277,34 @@ private fun GroupEditDialog(
                 enterprisesList = enterprisesList,
                 isStudentDialog = false
             )
-
         },
         confirmButton = {
             Button(onClick = {
-                // Создаем обновленную группу с новыми данными
-                val updatedGroup = currentGroup.copy(
-                    codeOfDirection = if (isCodeOfDirectionSet) codeOfDirection else currentGroup.codeOfDirection,
-                    nameOfDirection = if (isNameOfDirectionSet) nameOfDirection else currentGroup.nameOfDirection
-                )
-
-                // Обновляем информацию о группе
-                viewModel.updateGroupData(updatedGroup)
-
-                // Обновляем всех студентов в группе
-                val updatedStudents = currentGroup.students.map { student ->
-                    Student(
-                        name = student.name,
-                        course = student.course,
-                        codeOfDirection = if (isCodeOfDirectionSet) codeOfDirection else student.codeOfDirection,
-                        nameOfDirection = if (isNameOfDirectionSet) nameOfDirection else student.nameOfDirection,
-                        group = student.group,
-                        isForeign = if (isForeignSet) isForeign else student.isForeign,
-                        gradeForPractice = if (isGradeForPracticeSet) gradeForPractice else student.gradeForPractice,
-                        nameOfPracticeBase = if (isNameOfPracticeBaseSet) nameOfPracticeBase else student.nameOfPracticeBase,
-                        typeOfPractice = if (isTypeOfPracticeSet) typeOfPractice else student.typeOfPractice,
-                        periodOfPractice = if (isPeriodOfPracticeSet) periodOfPractice else student.periodOfPractice,
-                        practiceForm = if (isPracticeFormSet) practiceForm else student.practiceForm,
-                        formOfStudy = if (isFormOfStudySet) formOfStudy else student.formOfStudy,
-                        isPaidPractice = if (isPaidPracticeSet) isPaidPractice else student.isPaidPractice,
-                        cityOfPractice = if (isCityOfPracticeSet) cityOfPractice else student.cityOfPractice,
-                        nameOfSpeciality = if (isNameOfSpecialitySet) nameOfSpeciality else student.nameOfSpeciality,
-                        codeOfSpeciality = if (isCodeOfSpecialitySet) codeOfSpeciality else student.codeOfSpeciality,
-                        headOfPracticeFromDepartment = if (isHeadOfPracticeFromDepartmentSet) headOfPracticeFromDepartment else student.headOfPracticeFromDepartment,
-                        headOfPracticeFromPracticeBase = if (isHeadOfPracticeFromPracticeBaseSet) headOfPracticeFromPracticeBase else student.headOfPracticeFromPracticeBase,
-                        postOfHeadOfPracticeFromPracticeBase = if (isPostOfHeadOfPracticeFromPracticeBaseSet) postOfHeadOfPracticeFromPracticeBase else student.postOfHeadOfPracticeFromPracticeBase,
-                        postOfHeadOfPracticeFromDepartment = if (isPostOfHeadOfPracticeFromDepartmentSet) postOfHeadOfPracticeFromDepartment else student.postOfHeadOfPracticeFromDepartment,
-                        directorName = if (isDirectorNameSet) directorName else student.directorName,
-                        withPayment = if (isPaidPracticeSet) isPaidPractice else student.withPayment
+                // Применяем изменения только к измененным полям
+                ApplyGroupChanges(
+                    viewModel = viewModel,
+                    currentGroup = currentGroup,
+                    changes = GroupChanges(
+                        nameOfPracticeBase = if (isNameOfPracticeBaseSet) nameOfPracticeBase else null,
+                        typeOfPractice = if (isTypeOfPracticeSet) typeOfPractice else null,
+                        periodOfPractice = if (isPeriodOfPracticeSet) periodOfPractice else null,
+                        cityOfPractice = if (isCityOfPracticeSet) cityOfPractice else null,
+                        headOfPracticeFromDepartment = if (isHeadOfPracticeFromDepartmentSet) headOfPracticeFromDepartment else null,
+                        postOfHeadOfPracticeFromDepartment = if (isPostOfHeadOfPracticeFromDepartmentSet) postOfHeadOfPracticeFromDepartment else null,
+                        headOfPracticeFromPracticeBase = if (isHeadOfPracticeFromPracticeBaseSet) headOfPracticeFromPracticeBase else null,
+                        postOfHeadOfPracticeFromPracticeBase = if (isPostOfHeadOfPracticeFromPracticeBaseSet) postOfHeadOfPracticeFromPracticeBase else null,
+                        directorName = if (isDirectorNameSet) directorName else null,
+                        codeOfDirection = if (isCodeOfDirectionSet) codeOfDirection else null,
+                        nameOfDirection = if (isNameOfDirectionSet) nameOfDirection else null,
+                        nameOfSpeciality = if (isNameOfSpecialitySet) nameOfSpeciality else null,
+                        codeOfSpeciality = if (isCodeOfSpecialitySet) codeOfSpeciality else null,
+                        practiceForm = if (isPracticeFormSet) practiceForm else null,
+                        formOfStudy = if (isFormOfStudySet) formOfStudy else null,
+                        isForeign = if (isForeignSet) isForeign else null,
+                        isPaidPractice = if (isPaidPracticeSet) isPaidPractice else null,
+                        gradeForPractice = if (isGradeForPracticeSet) gradeForPractice else null
                     )
-                }
-
-                // Обновляем студентов в группе одним вызовом
-                viewModel.updateGroupStudents(currentGroup.name, updatedStudents)
+                )
                 onDismiss()
             }) {
                 Text("Применить ко всей группе")
@@ -419,6 +312,83 @@ private fun GroupEditDialog(
         }
     )
 }
+
+/**
+ * Вспомогательная функция для применения изменений к группе
+ */
+private fun ApplyGroupChanges(
+    viewModel: NornViewModel,
+    currentGroup: Group,
+    changes: GroupChanges
+) {
+    // Обновляем группу если изменились её параметры
+    if (changes.codeOfDirection != null || changes.nameOfDirection != null) {
+        val updatedGroup = currentGroup.copy(
+            codeOfDirection = changes.codeOfDirection ?: currentGroup.codeOfDirection,
+            nameOfDirection = changes.nameOfDirection ?: currentGroup.nameOfDirection
+        )
+        viewModel.updateGroupData(updatedGroup)
+    }
+
+    // Обновляем всех студентов в группе
+    val updatedStudents = currentGroup.students.map { student ->
+        Student(
+            name = student.name,
+            course = student.course,
+            codeOfDirection = changes.codeOfDirection ?: student.codeOfDirection,
+            nameOfDirection = changes.nameOfDirection ?: student.nameOfDirection,
+            group = student.group,
+            isForeign = changes.isForeign ?: student.isForeign,
+            gradeForPractice = changes.gradeForPractice ?: student.gradeForPractice,
+            nameOfPracticeBase = changes.nameOfPracticeBase ?: student.nameOfPracticeBase,
+            typeOfPractice = changes.typeOfPractice ?: student.typeOfPractice,
+            periodOfPractice = changes.periodOfPractice ?: student.periodOfPractice,
+            practiceForm = changes.practiceForm ?: student.practiceForm,
+            formOfStudy = changes.formOfStudy ?: student.formOfStudy,
+            isPaidPractice = changes.isPaidPractice ?: student.isPaidPractice,
+            cityOfPractice = changes.cityOfPractice ?: student.cityOfPractice,
+            nameOfSpeciality = changes.nameOfSpeciality ?: student.nameOfSpeciality,
+            codeOfSpeciality = changes.codeOfSpeciality ?: student.codeOfSpeciality,
+            headOfPracticeFromDepartment = changes.headOfPracticeFromDepartment
+                ?: student.headOfPracticeFromDepartment,
+            headOfPracticeFromPracticeBase = changes.headOfPracticeFromPracticeBase
+                ?: student.headOfPracticeFromPracticeBase,
+            postOfHeadOfPracticeFromPracticeBase = changes.postOfHeadOfPracticeFromPracticeBase
+                ?: student.postOfHeadOfPracticeFromPracticeBase,
+            postOfHeadOfPracticeFromDepartment = changes.postOfHeadOfPracticeFromDepartment
+                ?: student.postOfHeadOfPracticeFromDepartment,
+            directorName = changes.directorName ?: student.directorName,
+            withPayment = changes.isPaidPractice ?: student.withPayment
+        )
+    }
+
+    // Обновляем студентов в группе одним вызовом
+    viewModel.updateGroupStudents(currentGroup.name, updatedStudents)
+}
+
+/**
+ * Класс для хранения изменений, которые нужно применить к группе
+ */
+private data class GroupChanges(
+    val nameOfPracticeBase: String? = null,
+    val typeOfPractice: String? = null,
+    val periodOfPractice: String? = null,
+    val cityOfPractice: String? = null,
+    val headOfPracticeFromDepartment: String? = null,
+    val postOfHeadOfPracticeFromDepartment: String? = null,
+    val headOfPracticeFromPracticeBase: String? = null,
+    val postOfHeadOfPracticeFromPracticeBase: String? = null,
+    val directorName: String? = null,
+    val codeOfDirection: String? = null,
+    val nameOfDirection: String? = null,
+    val nameOfSpeciality: String? = null,
+    val codeOfSpeciality: String? = null,
+    val practiceForm: String? = null,
+    val formOfStudy: String? = null,
+    val isForeign: Boolean? = null,
+    val isPaidPractice: Boolean? = null,
+    val gradeForPractice: String? = null
+)
 
 @Composable
 private fun GroupParametersEditDialog(
@@ -675,6 +645,208 @@ private fun StudentEditDialog(
     )
 }
 
+/**
+ * Секция выбора группы из выпадающего списка
+ */
+@Composable
+private fun GroupSelectionSection(
+    groups: List<Group>,
+    selectedGroup: Group?,
+    onGroupSelect: (Group) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        border = BorderStroke(width = 1.dp, color = MaterialTheme.colorScheme.outline)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("🎓 Выберите группу:", style = MaterialTheme.typography.titleMedium)
+
+            var expanded by remember { mutableStateOf(false) }
+            var selectedGroupName by remember {
+                mutableStateOf(selectedGroup?.name ?: "Выберите группу")
+            }
+
+            // Выпадающий список групп
+            Box(modifier = Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    modifier = Modifier.fillMaxWidth(),
+                    readOnly = true,
+                    value = selectedGroupName,
+                    onValueChange = {},
+                    label = { Text("Группа") },
+                    trailingIcon = {
+                        TextButton(onClick = { expanded = !expanded }) {
+                            Text(if (expanded) "▲" else "▼")
+                        }
+                    }
+                )
+                DropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    groups.forEach { group ->
+                        DropdownMenuItem(
+                            text = {
+                                Text("${group.name} (${group.students.size} студентов)")
+                            },
+                            onClick = {
+                                onGroupSelect(group)
+                                selectedGroupName = group.name
+                                expanded = false
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Секция с информацией о выбранной группе и кнопками управления
+ */
+@Composable
+private fun GroupInfoSection(
+    group: Group,
+    onGroupFillClick: () -> Unit,
+    onGroupEditClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        border = BorderStroke(width = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Информация о группе
+                Column {
+                    Text("🎓 Группа: ${group.name}", style = MaterialTheme.typography.titleMedium)
+                    Text("Студентов: ${group.students.size}")
+                    Text("Направление: ${group.nameOfDirection}")
+                    Text("Код направления: ${group.codeOfDirection}")
+                }
+
+                // Кнопки управления группой
+                Column {
+                    Button(onClick = onGroupFillClick) {
+                        Text("📝 Заполнить для группы")
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Button(
+                        onClick = onGroupEditClick,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.secondary
+                        )
+                    ) {
+                        Text("⚙️ Изменить группу")
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Секция со списком студентов выбранной группы
+ */
+@Composable
+private fun StudentsListSection(
+    group: Group,
+    onStudentSelect: (Student) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        border = BorderStroke(width = 2.dp, color = MaterialTheme.colorScheme.primary)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                "👤 Список студентов:",
+                modifier = Modifier.padding(bottom = 10.dp),
+                style = MaterialTheme.typography.titleMedium
+            )
+            Divider(
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                thickness = 1.dp,
+                modifier = Modifier.padding(bottom = 10.dp)
+            )
+
+            // Прокручиваемый список студентов
+            LazyColumn(modifier = Modifier.height(300.dp)) {
+                items(group.students) { student ->
+                    StudentCard(
+                        student = student,
+                        onSelect = { onStudentSelect(student) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Карточка отдельного студента в списке
+ */
+@Composable
+private fun StudentCard(
+    student: Student,
+    onSelect: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        onClick = onSelect,
+        border = BorderStroke(width = 1.dp, color = MaterialTheme.colorScheme.tertiary)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(student.name, style = MaterialTheme.typography.bodyMedium)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Курс: ${student.course}")
+                Text("Группа: ${student.group}")
+            }
+            Text("База: ${student.nameOfPracticeBase}")
+            Text("Город: ${student.cityOfPractice}")
+            Text("Оценка: ${student.gradeForPractice}")
+        }
+    }
+}
+
+/**
+ * Заглушка когда нет загруженных групп
+ */
+@Composable
+private fun NoGroupsPlaceholder() {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                "📝 Нет загруженных групп",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                "Перейдите на экран 'Списки студентов' чтобы загрузить группы",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+/**
+ * Универсальная форма редактирования данных студента/группы
+ * Содержит все поля для редактирования информации о практике
+ */
 @Composable
 private fun EditFormContent(
     selectedEnterprise: Enterprise?,
@@ -718,10 +890,10 @@ private fun EditFormContent(
     enterprisesList: List<Enterprise>,
     isStudentDialog: Boolean
 ) {
-    // Состояние для выбранного руководителя
+    // Состояние для выбранного руководителя практики от предприятия
     var selectedSupervisor by remember { mutableStateOf<PracticeSupervisor?>(null) }
 
-    // Состояния для выпадающих списков
+    // Состояния для выпадающих списков (формы, формы обучения, оплаты, оценки)
     var practiceFormExpanded by remember { mutableStateOf(false) }
     var formOfStudyExpanded by remember { mutableStateOf(false) }
     var practicePaymentExpanded by remember { mutableStateOf(false) }
@@ -733,6 +905,9 @@ private fun EditFormContent(
     val practicePaymentOptions = listOf("Оплачиваемая", "Неоплачиваемая")
     val gradeOptions = listOf("отлично", "хорошо", "удовлетворительно", "неудов")
 
+    /**
+     * Функция для определения кастомной цветовой схемы для заполненных полей формы
+     */
     @Composable
     fun fieldColors(value: String): TextFieldColors {
         return if (value.isNotEmpty()) {
@@ -749,8 +924,10 @@ private fun EditFormContent(
         modifier = if (isStudentDialog) Modifier.height(350.dp) else Modifier.height(400.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        // Блок выбора места практики, предприятия и руководителя от базы
         item {
             Text("Место практики:", style = MaterialTheme.typography.titleSmall)
+            // Выпадающий список предприятий
             EnterpriseDropdown(
                 enterprisesList = enterprisesList,
                 selectedEnterprise = selectedEnterprise,
@@ -764,7 +941,7 @@ private fun EditFormContent(
                 colors = fieldColors(nameOfPracticeBase)
             )
 
-            // Выпадающий список руководителей практики
+            // Выпадающий список руководителей практики от предприятия
             if (selectedEnterprise != null && selectedEnterprise.supervisors.isNotEmpty()) {
                 SupervisorDropdown(
                     supervisors = selectedEnterprise.supervisors,
@@ -777,6 +954,7 @@ private fun EditFormContent(
                 )
             }
         }
+        // Блок направления подготовки
         item {
             Text("Направление подготовки:", style = MaterialTheme.typography.titleSmall)
             OutlinedTextField(
@@ -794,6 +972,7 @@ private fun EditFormContent(
                 colors = fieldColors(nameOfDirection)
             )
         }
+        // Блок информации о практике: тип, период, город, оценка, оплата
         item {
             Text("Информация о практике:", style = MaterialTheme.typography.titleSmall)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -820,6 +999,7 @@ private fun EditFormContent(
                     modifier = Modifier.weight(1f),
                     colors = fieldColors(cityOfPractice)
                 )
+                // Выпадающий список для оценки практики
                 Box(modifier = Modifier.weight(1f)) {
                     OutlinedTextField(
                         modifier = Modifier.fillMaxWidth(),
@@ -851,7 +1031,7 @@ private fun EditFormContent(
                 }
             }
 
-            // Выпадающий список для оплаты практики с возможностью ввода
+            // Выпадающий список для указания, оплачиваемая или нет практика, с возможностью ручного ввода
             Text("Оплата практики:", style = MaterialTheme.typography.bodySmall)
             var practicePaymentText by remember { mutableStateOf(if (isPaidPractice) "Оплачиваемая" else "Неоплачиваемая") }
             
@@ -891,6 +1071,7 @@ private fun EditFormContent(
                 }
             }
         }
+        // Блок информации о руководителях (от кафедры и от базы)
         item {
             Text("Руководители:", style = MaterialTheme.typography.titleSmall)
             OutlinedTextField(
@@ -922,6 +1103,7 @@ private fun EditFormContent(
                 colors = fieldColors(postOfHeadOfPracticeFromPracticeBase)
             )
         }
+        // Блок дополнительной информации и формы обучения/практики
         item {
             Text("Дополнительная информация:", style = MaterialTheme.typography.titleSmall)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -948,6 +1130,7 @@ private fun EditFormContent(
                 colors = fieldColors(directorName)
             )
 
+            // Выпадающий список для формы практики
             Box(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
                     modifier = Modifier.fillMaxWidth(),
@@ -977,6 +1160,7 @@ private fun EditFormContent(
                     }
                 }
             }
+            // Выпадающий список для формы обучения
             Box(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
                     modifier = Modifier.fillMaxWidth(),
@@ -1007,6 +1191,7 @@ private fun EditFormContent(
                 }
             }
 
+            // Чекбокс для иностранного студента
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(checked = isForeign, onCheckedChange = onIsForeignChange)
                 Text("Иностранный студент")
@@ -1015,6 +1200,9 @@ private fun EditFormContent(
     }
 }
 
+/**
+ * Выпадающий список предприятий с информацией о городе и числе руководителей
+ */
 @Composable
 private fun EnterpriseDropdown(
     enterprisesList: List<Enterprise>,
@@ -1084,6 +1272,9 @@ private fun EnterpriseDropdown(
     }
 }
 
+/**
+ * Выпадающий список руководителей практики от предприятия (ФИО + должность)
+ */
 @Composable
 private fun SupervisorDropdown(
     supervisors: List<PracticeSupervisor>,

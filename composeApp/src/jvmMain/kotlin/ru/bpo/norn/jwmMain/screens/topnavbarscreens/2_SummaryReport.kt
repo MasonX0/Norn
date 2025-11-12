@@ -20,13 +20,21 @@ import javax.swing.JFileChooser
 import javax.swing.filechooser.FileNameExtensionFilter
 
 
+/**
+ * Экран генерации сводного отчета по практике
+ * Отображает статистику по группам и позволяет генерировать отчет в формате Word
+ * @param viewModel ViewModel для управления данными отчета
+ */
 @Composable
 fun SummaryReport(viewModel: NornViewModel) {
+    // Подписка на состояния из ViewModel
     val reportFile by viewModel.reportFile.collectAsState()
+
+    // Локальные состояния для процесса генерации
     var generationResult by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
 
-    // Получаем текущие данные отчета
+    // Получаем данные отчета и статистику групп
     val summaryReportData by viewModel.summaryReportData.collectAsState()
     val groupStatistics = remember(
         viewModel.groups.collectAsState().value,
@@ -43,173 +51,256 @@ fun SummaryReport(viewModel: NornViewModel) {
         horizontalArrangement = Arrangement.spacedBy(15.dp)
     ) {
         // Левая часть - основная таблица и управление
-        Column(
-            modifier = Modifier.weight(2f),
-            verticalArrangement = Arrangement.spacedBy(15.dp)
+        MainReportSection(
+            summaryReportData = summaryReportData,
+            groupStatistics = groupStatistics,
+            viewModel = viewModel,
+            generationResult = generationResult,
+            isLoading = isLoading,
+            modifier = Modifier.weight(2f)
+        )
+
+        // Правая часть - компактная форма редактирования (всегда видна)
+        EditFormSection(
+            summaryReportData = summaryReportData,
+            onDataChanged = { newData -> viewModel.updateSummaryReportData(newData) },
+            modifier = Modifier.weight(1f).fillMaxHeight()
+        )
+    }
+}
+
+/**
+ * Основная секция с таблицей отчета и управлением
+ */
+@Composable
+private fun MainReportSection(
+    summaryReportData: SummaryReportData,
+    groupStatistics: Map<String, GroupStatistics>,
+    viewModel: NornViewModel,
+    generationResult: String?,
+    isLoading: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(15.dp)
+    ) {
+        // Заголовок отчета
+        ReportHeader(summaryReportData)
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Главная таблица с прокруткой
+        LazyColumn(
+            modifier = Modifier.height(400.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Заголовок
-            Column {
-                Text(
-                    summaryReportData.departmentName,
-                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Text(
-                    summaryReportData.academicYear,
-                    style = MaterialTheme.typography.titleMedium,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
+            item {
+                // Таблица статистики групп
+                SummaryTable(groupStatistics)
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Таблица статистики
-            LazyColumn(
-                modifier = Modifier.height(400.dp), 
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                item {
-                    SummaryTable(groupStatistics)
-                }
-
-                item {
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Дополнительные поля отчета
-                    SummaryReportFields(summaryReportData)
-                }
-            }
-
-            // Кнопки управления
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Button(
-                    onClick = {
-                        val reportData = summaryReportData
-                        val groupStatistics = viewModel.getGroupStatistics()
-                        viewModel.generateSummaryReportWithoutTemplate(reportData, groupStatistics)
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("📄 Сгенерировать отчет")
-                }
-            }
-
-            // Статус генерации документа
-            val documentStatus by viewModel.reportGenerationStatus.collectAsState()
-            if (documentStatus.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = when {
-                            documentStatus.startsWith("✅") -> Color(0xFF4CAF50).copy(alpha = 0.1f)
-                            documentStatus.startsWith("❌") -> Color(0xFFF44336).copy(alpha = 0.1f)
-                            else -> MaterialTheme.colorScheme.surfaceVariant
-                        }
-                    )
-                ) {
-                    Text(
-                        text = documentStatus,
-                        modifier = Modifier.padding(12.dp),
-                        color = when {
-                            documentStatus.startsWith("✅") -> Color(0xFF2E7D32)
-                            documentStatus.startsWith("❌") -> Color(0xFFD32F2F)
-                            else -> MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-            }
-
-            // Статус
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.Start
-            ) {
-                Text(
-                    "Информация о генерации:",
-                    style = MaterialTheme.typography.titleMedium
-                )
-
-                val totalStudents = groupStatistics.values.sumOf { it.totalStudents }
-                val totalGroups = groupStatistics.size
-
-                Text("Загружено групп: $totalGroups")
-                Text("Всего студентов: $totalStudents")
-
-                if (totalGroups > 0) {
-                    Text(
-                        "✅ Готов к генерации отчета",
-                        color = MaterialTheme.colorScheme.primary,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                } else {
-                    Text(
-                        "⚠️ Загрузите данные студентов для генерации",
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-
-                Text(
-                    "💾 Отчет будет сохранен: ${viewModel.getOutputDirectory("Отчеты").absolutePath}/Сводный_отчет_по_практике.docx",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                generationResult?.let { result ->
-                    Text(
-                        result,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (result.contains("✅")) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.error
-                    )
-                }
-
-                if (isLoading) {
-                    Text("⏳ Идет генерация отчета...")
-                }
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                // Дополнительные поля отчета
+                SummaryReportFields(summaryReportData)
             }
         }
 
-        // Правая часть - компактная форма редактирования (всегда видна)
-        Card(
-            modifier = Modifier.weight(1f).fillMaxHeight(),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        // Кнопка генерации отчета
+        GenerateReportButton(
+            viewModel = viewModel,
+            summaryReportData = summaryReportData,
+            groupStatistics = groupStatistics
+        )
+
+        // Статус генерации документа
+        DocumentGenerationStatus(viewModel)
+
+        // Информация о состоянии
+        ReportStatusInfo(
+            viewModel = viewModel,
+            groupStatistics = groupStatistics,
+            generationResult = generationResult,
+            isLoading = isLoading
+        )
+    }
+}
+
+/**
+ * Заголовок отчета с названием кафедры и учебным годом
+ */
+@Composable
+private fun ReportHeader(summaryReportData: SummaryReportData) {
+    Column {
+        Text(
+            summaryReportData.departmentName,
+            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            summaryReportData.academicYear,
+            style = MaterialTheme.typography.titleMedium,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+/**
+ * Кнопка генерации отчета
+ */
+@Composable
+private fun GenerateReportButton(
+    viewModel: NornViewModel,
+    summaryReportData: SummaryReportData,
+    groupStatistics: Map<String, GroupStatistics>
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Button(
+            onClick = {
+                val reportData = summaryReportData
+                val statistics = viewModel.getGroupStatistics()
+                viewModel.generateSummaryReportWithoutTemplate(reportData, statistics)
+            },
+            modifier = Modifier.fillMaxWidth()
         ) {
-            CompactEditForm(
-                summaryReportData = summaryReportData,
-                onDataChanged = { newData ->
-                    viewModel.updateSummaryReportData(newData)
+            Text("📄 Сгенерировать отчет")
+        }
+    }
+}
+
+/**
+ * Отображение статуса генерации документа
+ */
+@Composable
+private fun DocumentGenerationStatus(viewModel: NornViewModel) {
+    val documentStatus by viewModel.reportGenerationStatus.collectAsState()
+
+    if (documentStatus.isNotEmpty()) {
+        Spacer(modifier = Modifier.height(8.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = when {
+                    documentStatus.startsWith("✅") -> Color(0xFF4CAF50).copy(alpha = 0.1f)
+                    documentStatus.startsWith("❌") -> Color(0xFFF44336).copy(alpha = 0.1f)
+                    else -> MaterialTheme.colorScheme.surfaceVariant
+                }
+            )
+        ) {
+            Text(
+                text = documentStatus,
+                modifier = Modifier.padding(12.dp),
+                color = when {
+                    documentStatus.startsWith("✅") -> Color(0xFF2E7D32)
+                    documentStatus.startsWith("❌") -> Color(0xFFD32F2F)
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
                 },
-                modifier = Modifier.padding(12.dp)
+                style = MaterialTheme.typography.bodyMedium
             )
         }
     }
 }
 
+/**
+ * Информация о состоянии отчета и готовности к генерации
+ */
+@Composable
+private fun ReportStatusInfo(
+    viewModel: NornViewModel,
+    groupStatistics: Map<String, GroupStatistics>,
+    generationResult: String?,
+    isLoading: Boolean
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.Start
+    ) {
+        Text(
+            "Информация о генерации:",
+            style = MaterialTheme.typography.titleMedium
+        )
+
+        // Статистика по загруженным данным
+        val totalStudents = groupStatistics.values.sumOf { it.totalStudents }
+        val totalGroups = groupStatistics.size
+
+        Text("Загружено групп: $totalGroups")
+        Text("Всего студентов: $totalStudents")
+
+        // Статус готовности
+        if (totalGroups > 0) {
+            Text(
+                "✅ Готов к генерации отчета",
+                color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        } else {
+            Text(
+                "⚠️ Загрузите данные студентов для генерации",
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+
+        // Путь сохранения
+        Text(
+            "💾 Отчет будет сохранен: ${viewModel.getOutputDirectory("Отчеты").absolutePath}/Сводный_отчет_по_практике.docx",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        // Результат генерации
+        generationResult?.let { result ->
+            Text(
+                result,
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (result.contains("✅")) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.error
+            )
+        }
+
+        // Индикатор загрузки
+        if (isLoading) {
+            Text("⏳ Идет генерация отчета...")
+        }
+    }
+}
+
+/**
+ * Секция с формой редактирования данных отчета
+ */
+@Composable
+private fun EditFormSection(
+    summaryReportData: SummaryReportData,
+    onDataChanged: (SummaryReportData) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier,
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        CompactEditForm(
+            summaryReportData = summaryReportData,
+            onDataChanged = onDataChanged,
+            modifier = Modifier.padding(12.dp)
+        )
+    }
+}
+
+/**
+ * Основная таблица сводного отчета с статистикой по группам
+ * Содержит две секции: статистика по местам практики и результаты защиты
+ */
 @Composable
 fun SummaryTable(groupStatistics: Map<String, GroupStatistics>) {
     if (groupStatistics.isEmpty()) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-        ) {
-            Box(
-                modifier = Modifier.fillMaxWidth().padding(32.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    "Нет данных для отображения.\nЗагрузите студентов и предприятия.",
-                    textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.bodyLarge
-                )
-            }
-        }
+        // Заглушка когда нет данных
+        EmptyDataPlaceholder()
         return
     }
 
@@ -220,148 +311,215 @@ fun SummaryTable(groupStatistics: Map<String, GroupStatistics>) {
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            // Заголовок таблицы
+            // Заголовок первой таблицы
             Text(
                 "1. Количество студентов на практике",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
-            // Заголовки колонок
-            Row(
-                modifier = Modifier.fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .padding(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                TableHeaderCell("Группа", Modifier.weight(1.5f))
-                TableHeaderCell("Сроки практики", Modifier.weight(1.5f))
-                TableHeaderCell(
-                    "Вид практики\n(учебная, произв.,\nпреддипломная, НИР)",
-                    Modifier.weight(1.5f)
-                )
-                TableHeaderCell("Всего\nчел", Modifier.weight(1f))
-                TableHeaderCell("Предприятия\nзаруб", Modifier.weight(1f))
-                TableHeaderCell("Предприятия\nРФ", Modifier.weight(1f))
-                TableHeaderCell("Солуни,\nТюлюк Инзер", Modifier.weight(1f))
-                TableHeaderCell("Кафедра", Modifier.weight(1f))
-                TableHeaderCell("Структурные\nподразделения\nвуза", Modifier.weight(1f))
-                TableHeaderCell("Базовые\nкафедры", Modifier.weight(1f))
-                TableHeaderCell("Кол-во студ.\nна оплачиваемых\nместах", Modifier.weight(1f))
-            }
-
-            Divider()
-
-            // Строки данных
-            groupStatistics.forEach { (groupName, stats) ->
-                Row(
-                    modifier = Modifier.fillMaxWidth()
-                        .padding(vertical = 4.dp, horizontal = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    TableDataCell(groupName, Modifier.weight(1.5f))
-                    TableDataCell(
-                        stats.practiceStartDate + "-" + stats.practiceEndDate,
-                        Modifier.weight(1.5f)
-                    )
-                    TableDataCell(stats.practiceType, Modifier.weight(1.5f))
-                    TableDataCell(stats.totalStudents.toString(), Modifier.weight(1f))
-                    TableDataCell(stats.foreignEnterprises.toString(), Modifier.weight(1f))
-                    TableDataCell(stats.rfEnterprises.toString(), Modifier.weight(1f))
-                    TableDataCell(stats.soluniTyulyukInzer.toString(), Modifier.weight(1f))
-                    TableDataCell(stats.departmentStudents.toString(), Modifier.weight(1f))
-                    TableDataCell(stats.universitySubdivisions.toString(), Modifier.weight(1f))
-                    TableDataCell(stats.baseDepartments.toString(), Modifier.weight(1f))
-                    TableDataCell(stats.paidPracticeStudents.toString(), Modifier.weight(1f))
-                }
-
-                // Строка для иностранных студентов (если есть)
-                if (stats.foreignStudents > 0) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth()
-                            .padding(vertical = 2.dp, horizontal = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        TableDataCell("из них иностранных\nстудентов", Modifier.weight(1.5f))
-                        TableDataCell("", Modifier.weight(1.5f)) // Сроки практики
-                        TableDataCell("", Modifier.weight(1.5f)) // Вид практики
-                        TableDataCell(stats.foreignStudents.toString(), Modifier.weight(1f))
-                        TableDataCell("0", Modifier.weight(1f))
-                        TableDataCell("0", Modifier.weight(1f))
-                        TableDataCell("0", Modifier.weight(1f))
-                        TableDataCell(stats.foreignStudents.toString(), Modifier.weight(1f))
-                        TableDataCell("0", Modifier.weight(1f))
-                        TableDataCell("0", Modifier.weight(1f))
-                        TableDataCell("0", Modifier.weight(1f))
-                    }
-                }
-
-                Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
-            }
+            // Таблица статистики по местам практики
+            PracticeStatisticsTable(groupStatistics)
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Таблица результатов защиты
+            // Заголовок второй таблицы
             Text(
                 "7. Результаты защиты отчетов по практике:",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
-            // Заголовки для результатов защиты
-            Row(
-                modifier = Modifier.fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .padding(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                TableHeaderCell("Группа", Modifier.weight(2f))
-                TableHeaderCell("Количество\nстудентов", Modifier.weight(1f))
-                TableHeaderCell("Из них с оценкой", Modifier.weight(3f))
-                TableHeaderCell("Не защитили\nв срок", Modifier.weight(1f))
-            }
-
-            // Подзаголовки для оценок
-            Row(
-                modifier = Modifier.fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(modifier = Modifier.weight(2f)) // Пустое место под "Группа"
-                Box(modifier = Modifier.weight(1f)) // Пустое место под "Количество студентов"
-                Row(modifier = Modifier.weight(3f)) {
-                    TableHeaderCell("отлично", Modifier.weight(1f))
-                    TableHeaderCell("хорошо", Modifier.weight(1f))
-                    TableHeaderCell("удовлетворит.", Modifier.weight(1f))
-                }
-                Box(modifier = Modifier.weight(1f)) // Пустое место под "Не защитили в срок"
-            }
-
-            Divider()
-
-            // Данные результатов защиты
-            groupStatistics.forEach { (groupName, stats) ->
-                Row(
-                    modifier = Modifier.fillMaxWidth()
-                        .padding(vertical = 4.dp, horizontal = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    TableDataCell(groupName, Modifier.weight(2f))
-                    TableDataCell(stats.totalStudents.toString(), Modifier.weight(1f))
-                    Row(modifier = Modifier.weight(3f)) {
-                        TableDataCell(stats.excellentGrades.toString(), Modifier.weight(1f))
-                        TableDataCell(stats.goodGrades.toString(), Modifier.weight(1f))
-                        TableDataCell(stats.satisfactoryGrades.toString(), Modifier.weight(1f))
-                    }
-                    TableDataCell(stats.notDefended.toString(), Modifier.weight(1f))
-                }
-                Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
-            }
+            // Таблица результатов защиты
+            DefenseResultsTable(groupStatistics)
         }
     }
 }
 
+/**
+ * Заглушка для отображения когда нет данных
+ */
+@Composable
+private fun EmptyDataPlaceholder() {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Box(
+            modifier = Modifier.fillMaxWidth().padding(32.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                "Нет данных для отображения.\nЗагрузите студентов и предприятия.",
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.bodyLarge
+            )
+        }
+    }
+}
+
+/**
+ * Таблица статистики по местам практики
+ */
+@Composable
+private fun PracticeStatisticsTable(groupStatistics: Map<String, GroupStatistics>) {
+    // Заголовки колонок
+    Row(
+        modifier = Modifier.fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        TableHeaderCell("Группа", Modifier.weight(1.5f))
+        TableHeaderCell("Сроки практики", Modifier.weight(1.5f))
+        TableHeaderCell(
+            "Вид практики\n(учебная, произв.,\nпреддипломная, НИР)",
+            Modifier.weight(1.5f)
+        )
+        TableHeaderCell("Всего\nчел", Modifier.weight(1f))
+        TableHeaderCell("Предприятия\nзаруб", Modifier.weight(1f))
+        TableHeaderCell("Предприятия\nРФ", Modifier.weight(1f))
+        TableHeaderCell("Солуни,\nТюлюк Инзер", Modifier.weight(1f))
+        TableHeaderCell("Кафедра", Modifier.weight(1f))
+        TableHeaderCell("Структурные\nподразделения\nвуза", Modifier.weight(1f))
+        TableHeaderCell("Базовые\nкафедры", Modifier.weight(1f))
+        TableHeaderCell("Кол-во студ.\nна оплачиваемых\nместах", Modifier.weight(1f))
+    }
+
+    Divider()
+
+    // Строки данных для каждой группы
+    groupStatistics.forEach { (groupName, stats) ->
+        PracticeStatisticsRow(groupName, stats)
+
+        // Дополнительная строка для иностранных студентов (если есть)
+        if (stats.foreignStudents > 0) {
+            ForeignStudentsRow(stats)
+        }
+
+        Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+    }
+}
+
+/**
+ * Строка данных по статистике практики для группы
+ */
+@Composable
+private fun PracticeStatisticsRow(groupName: String, stats: GroupStatistics) {
+    Row(
+        modifier = Modifier.fillMaxWidth()
+            .padding(vertical = 4.dp, horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        TableDataCell(groupName, Modifier.weight(1.5f))
+        TableDataCell(
+            stats.practiceStartDate + "-" + stats.practiceEndDate,
+            Modifier.weight(1.5f)
+        )
+        TableDataCell(stats.practiceType, Modifier.weight(1.5f))
+        TableDataCell(stats.totalStudents.toString(), Modifier.weight(1f))
+        TableDataCell(stats.foreignEnterprises.toString(), Modifier.weight(1f))
+        TableDataCell(stats.rfEnterprises.toString(), Modifier.weight(1f))
+        TableDataCell(stats.soluniTyulyukInzer.toString(), Modifier.weight(1f))
+        TableDataCell(stats.departmentStudents.toString(), Modifier.weight(1f))
+        TableDataCell(stats.universitySubdivisions.toString(), Modifier.weight(1f))
+        TableDataCell(stats.baseDepartments.toString(), Modifier.weight(1f))
+        TableDataCell(stats.paidPracticeStudents.toString(), Modifier.weight(1f))
+    }
+}
+
+/**
+ * Дополнительная строка для иностранных студентов
+ */
+@Composable
+private fun ForeignStudentsRow(stats: GroupStatistics) {
+    Row(
+        modifier = Modifier.fillMaxWidth()
+            .padding(vertical = 2.dp, horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        TableDataCell("из них иностранных\nстудентов", Modifier.weight(1.5f))
+        TableDataCell("", Modifier.weight(1.5f)) // Сроки практики
+        TableDataCell("", Modifier.weight(1.5f)) // Вид практики
+        TableDataCell(stats.foreignStudents.toString(), Modifier.weight(1f))
+        TableDataCell("0", Modifier.weight(1f))
+        TableDataCell("0", Modifier.weight(1f))
+        TableDataCell("0", Modifier.weight(1f))
+        TableDataCell(stats.foreignStudents.toString(), Modifier.weight(1f))
+        TableDataCell("0", Modifier.weight(1f))
+        TableDataCell("0", Modifier.weight(1f))
+        TableDataCell("0", Modifier.weight(1f))
+    }
+}
+
+/**
+ * Таблица результатов защиты отчетов
+ */
+@Composable
+private fun DefenseResultsTable(groupStatistics: Map<String, GroupStatistics>) {
+    // Заголовки для результатов защиты
+    Row(
+        modifier = Modifier.fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        TableHeaderCell("Группа", Modifier.weight(2f))
+        TableHeaderCell("Количество\nстудентов", Modifier.weight(1f))
+        TableHeaderCell("Из них с оценкой", Modifier.weight(3f))
+        TableHeaderCell("Не защитили\nв срок", Modifier.weight(1f))
+    }
+
+    // Подзаголовки для оценок
+    Row(
+        modifier = Modifier.fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(modifier = Modifier.weight(2f)) // Пустое место под "Группа"
+        Box(modifier = Modifier.weight(1f)) // Пустое место под "Количество студентов"
+        Row(modifier = Modifier.weight(3f)) {
+            TableHeaderCell("отлично", Modifier.weight(1f))
+            TableHeaderCell("хорошо", Modifier.weight(1f))
+            TableHeaderCell("удовлетворит.", Modifier.weight(1f))
+        }
+        Box(modifier = Modifier.weight(1f)) // Пустое место под "Не защитили в срок"
+    }
+
+    Divider()
+
+    // Данные результатов защиты по группам
+    groupStatistics.forEach { (groupName, stats) ->
+        DefenseResultsRow(groupName, stats)
+        Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+    }
+}
+
+/**
+ * Строка результатов защиты для группы
+ */
+@Composable
+private fun DefenseResultsRow(groupName: String, stats: GroupStatistics) {
+    Row(
+        modifier = Modifier.fillMaxWidth()
+            .padding(vertical = 4.dp, horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        TableDataCell(groupName, Modifier.weight(2f))
+        TableDataCell(stats.totalStudents.toString(), Modifier.weight(1f))
+        Row(modifier = Modifier.weight(3f)) {
+            TableDataCell(stats.excellentGrades.toString(), Modifier.weight(1f))
+            TableDataCell(stats.goodGrades.toString(), Modifier.weight(1f))
+            TableDataCell(stats.satisfactoryGrades.toString(), Modifier.weight(1f))
+        }
+        TableDataCell(stats.notDefended.toString(), Modifier.weight(1f))
+    }
+}
+
+/**
+ * Дополнительные поля отчета (текстовые секции)
+ */
 @Composable
 fun SummaryReportFields(summaryReportData: SummaryReportData) {
     Card(
@@ -372,6 +530,7 @@ fun SummaryReportFields(summaryReportData: SummaryReportData) {
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            // Все дополнительные поля отчета
             ReportField("2. Экскурсии:", summaryReportData.field2_excursions)
             ReportField("3. Преподаватели:", summaryReportData.field3_teachers)
             ReportField(
@@ -390,6 +549,9 @@ fun SummaryReportFields(summaryReportData: SummaryReportData) {
     }
 }
 
+/**
+ * Отдельное поле отчета с меткой и значением
+ */
 @Composable
 fun ReportField(label: String, value: String) {
     Column {
@@ -406,6 +568,10 @@ fun ReportField(label: String, value: String) {
     }
 }
 
+/**
+ * Компактная форма редактирования данных отчета
+ * Располагается в правой части экрана
+ */
 @Composable
 fun CompactEditForm(
     summaryReportData: SummaryReportData,
@@ -424,6 +590,7 @@ fun CompactEditForm(
             )
         }
 
+        // Основные поля отчета
         item {
             CompactEditTextField(
                 label = "Название кафедры",
@@ -440,6 +607,7 @@ fun CompactEditForm(
             )
         }
 
+        // Дополнительные поля отчета
         item {
             CompactEditTextField(
                 label = "Поле 2: Экскурсии",
@@ -514,6 +682,9 @@ fun CompactEditForm(
     }
 }
 
+/**
+ * Компактное текстовое поле для формы редактирования
+ */
 @Composable
 fun CompactEditTextField(
     label: String,
@@ -538,6 +709,9 @@ fun CompactEditTextField(
     )
 }
 
+/**
+ * Заголовок ячейки таблицы
+ */
 @Composable
 fun TableHeaderCell(text: String, modifier: Modifier = Modifier) {
     Text(
@@ -549,6 +723,9 @@ fun TableHeaderCell(text: String, modifier: Modifier = Modifier) {
     )
 }
 
+/**
+ * Ячейка данных таблицы
+ */
 @Composable
 fun TableDataCell(text: String, modifier: Modifier = Modifier) {
     Text(

@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import org.apache.poi.ss.usermodel.WorkbookFactory
 import org.apache.poi.xwpf.usermodel.XWPFDocument
 import org.apache.poi.xwpf.usermodel.XWPFParagraph
+import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import ru.bpo.norn.commonMain.data.coursework.mock.mockData.mockStudent1
 import ru.bpo.norn.commonMain.models.Group
 import ru.bpo.norn.commonMain.models.Student
@@ -120,6 +121,9 @@ class NornViewModel {
 
     private val _directionsGenerationStatus = MutableStateFlow("")
     val directionsGenerationStatus: StateFlow<String> = _directionsGenerationStatus.asStateFlow()
+
+    private val _statisticsGenerationStatus = MutableStateFlow("")
+    val statisticsGenerationStatus: StateFlow<String> = _statisticsGenerationStatus.asStateFlow()
 
     // OrderData StateFlow
     private val _orderData = MutableStateFlow(OrderData())
@@ -2218,6 +2222,131 @@ class NornViewModel {
         } catch (e: Exception) {
             _directionsGenerationStatus.value = "❌ Ошибка: ${e.message}"
             println("❌ Исключение при создании направлений: ${e.message}")
+            e.printStackTrace()
+            false
+        }
+    }
+
+    /**
+     * Генерирует Excel файл со статистикой по базам практики
+     * Создает таблицу: первый столбец - название базы практики, второй - количество студентов
+     */
+    fun generatePracticeBasesStatisticsExcel(): Boolean {
+        return try {
+            _statisticsGenerationStatus.value = "🔄 Создание статистики по базам практики..."
+
+            val outputFile =
+                File(getOutputDirectory("Статистика"), "Статистика_по_базам_практики.xlsx")
+
+            // Получаем всех студентов из всех групп
+            val allStudents = repository.groups.value.flatMap { it.students }
+
+            if (allStudents.isEmpty()) {
+                _statisticsGenerationStatus.value =
+                    "❌ Нет загруженных студентов для создания статистики"
+                println("❌ Нет загруженных студентов для создания статистики")
+                return false
+            }
+
+            // Группируем студентов по базам практики и подсчитываем количество
+            val practiceBasesStats = allStudents
+                .groupBy { it.nameOfPracticeBase.trim().ifBlank { "Не указано" } }
+                .mapValues { it.value.size }
+                .toList()
+                .sortedByDescending { it.second } // Сортируем по количеству студентов (по убыванию)
+
+            // Создаем Excel документ с помощью Apache POI
+            val workbook = org.apache.poi.xssf.usermodel.XSSFWorkbook()
+            val sheet = workbook.createSheet("Статистика по базам практики")
+
+            // Создаем стили для заголовка и данных
+            val headerStyle = workbook.createCellStyle().apply {
+                setFont(workbook.createFont().apply {
+                    bold = true
+                    fontHeightInPoints = 12
+                })
+                setAlignment(org.apache.poi.ss.usermodel.HorizontalAlignment.CENTER)
+                setBorderBottom(org.apache.poi.ss.usermodel.BorderStyle.MEDIUM)
+                setBorderTop(org.apache.poi.ss.usermodel.BorderStyle.MEDIUM)
+                setBorderLeft(org.apache.poi.ss.usermodel.BorderStyle.MEDIUM)
+                setBorderRight(org.apache.poi.ss.usermodel.BorderStyle.MEDIUM)
+                setFillForegroundColor(org.apache.poi.ss.usermodel.IndexedColors.LIGHT_BLUE.index)
+                setFillPattern(org.apache.poi.ss.usermodel.FillPatternType.SOLID_FOREGROUND)
+            }
+
+            val dataStyle = workbook.createCellStyle().apply {
+                setBorderBottom(org.apache.poi.ss.usermodel.BorderStyle.THIN)
+                setBorderTop(org.apache.poi.ss.usermodel.BorderStyle.THIN)
+                setBorderLeft(org.apache.poi.ss.usermodel.BorderStyle.THIN)
+                setBorderRight(org.apache.poi.ss.usermodel.BorderStyle.THIN)
+            }
+
+            val numberStyle = workbook.createCellStyle().apply {
+                setBorderBottom(org.apache.poi.ss.usermodel.BorderStyle.THIN)
+                setBorderTop(org.apache.poi.ss.usermodel.BorderStyle.THIN)
+                setBorderLeft(org.apache.poi.ss.usermodel.BorderStyle.THIN)
+                setBorderRight(org.apache.poi.ss.usermodel.BorderStyle.THIN)
+                setAlignment(org.apache.poi.ss.usermodel.HorizontalAlignment.CENTER)
+            }
+
+            // Создаем заголовок
+            val headerRow = sheet.createRow(0)
+            val cell1 = headerRow.createCell(0)
+            cell1.setCellValue("База практики")
+            cell1.cellStyle = headerStyle
+
+            val cell2 = headerRow.createCell(1)
+            cell2.setCellValue("Количество студентов")
+            cell2.cellStyle = headerStyle
+
+            // Заполняем данные
+            practiceBasesStats.forEachIndexed { index, (practiceBase, count) ->
+                val row = sheet.createRow(index + 1)
+
+                val nameCell = row.createCell(0)
+                nameCell.setCellValue(practiceBase)
+                nameCell.cellStyle = dataStyle
+
+                val countCell = row.createCell(1)
+                countCell.setCellValue(count.toDouble())
+                countCell.cellStyle = numberStyle
+            }
+
+            // Добавляем итоговую строку
+            val totalRow = sheet.createRow(practiceBasesStats.size + 1)
+            val totalLabelCell = totalRow.createCell(0)
+            totalLabelCell.setCellValue("ИТОГО:")
+            totalLabelCell.cellStyle = headerStyle
+
+            val totalCountCell = totalRow.createCell(1)
+            totalCountCell.setCellValue(allStudents.size.toDouble())
+            totalCountCell.cellStyle = headerStyle
+
+            // Автоматически подгоняем ширину колонок
+            sheet.autoSizeColumn(0)
+            sheet.autoSizeColumn(1)
+
+            // Устанавливаем минимальную ширину для первой колонки (название базы может быть длинным)
+            val currentWidth = sheet.getColumnWidth(0)
+            if (currentWidth < 8000) { // 8000 единиц ≈ 40 символов
+                sheet.setColumnWidth(0, 8000)
+            }
+
+            // Сохраняем файл
+            FileOutputStream(outputFile).use { fos ->
+                workbook.write(fos)
+            }
+            workbook.close()
+
+            _statisticsGenerationStatus.value = "✅ Статистика создана: ${outputFile.absolutePath}"
+            println("✅ Статистика по базам практики создана: ${outputFile.absolutePath}")
+            println("📊 Найдено уникальных баз практики: ${practiceBasesStats.size}")
+            println("👥 Общее количество студентов: ${allStudents.size}")
+
+            true
+        } catch (e: Exception) {
+            _statisticsGenerationStatus.value = "❌ Ошибка создания статистики: ${e.message}"
+            println("❌ Ошибка создания статистики: ${e.message}")
             e.printStackTrace()
             false
         }

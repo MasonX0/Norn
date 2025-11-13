@@ -35,6 +35,12 @@ fun InfoScreen(viewModel: NornViewModel) {
     var showGroupDialog by remember { mutableStateOf(false) }
     var showGroupEditDialog by remember { mutableStateOf(false) }
 
+    // Собираем статистику по всем студентам во всех группах
+    val allStudents = groups.flatMap { it.students }
+    val budgetStudents = allStudents.filter { it.formOfStudy.contains("Бюджет", ignoreCase = true) }
+    val paidStudents = allStudents.filter { it.formOfStudy.contains("Платн", ignoreCase = true) }
+    val targetStudents = allStudents.filter { it.formOfStudy.contains("Целев", ignoreCase = true) }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -67,6 +73,124 @@ fun InfoScreen(viewModel: NornViewModel) {
                 group = group,
                 onStudentSelect = { viewModel.selectStudentForEditing(it) }
             )
+        }
+
+        // Статистика студентов
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    "Статистика загруженных студентов:",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("📊 Всего студентов:")
+                    Text("${allStudents.size}", style = MaterialTheme.typography.titleMedium)
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("💰 Бюджетная основа:")
+                    Text("${budgetStudents.size}", color = MaterialTheme.colorScheme.primary)
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("🎯 Целевая основа:")
+                    Text("${targetStudents.size}", color = MaterialTheme.colorScheme.secondary)
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("💳 Платная основа:")
+                    Text("${paidStudents.size}", color = MaterialTheme.colorScheme.tertiary)
+                }
+
+                if (allStudents.isEmpty()) {
+                    Text(
+                        "⚠️ Нет загруженных студентов. Загрузите списки студентов в разделе 'Студенты'",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                } else {
+                    // Кнопка для создания статистики по базам практики
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = {
+                            viewModel.generatePracticeBasesStatisticsExcel()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.secondary
+                        )
+                    ) {
+                        Text("📊 Создать Excel со статистикой по базам практики")
+                    }
+
+                    Text(
+                        "💡 Создаст Excel файл с распределением студентов по базам практики",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    // Статус генерации статистики
+                    val statisticsStatus by viewModel.statisticsGenerationStatus.collectAsState()
+                    if (statisticsStatus.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = when {
+                                    statisticsStatus.startsWith("✅") -> androidx.compose.ui.graphics.Color(
+                                        0xFF4CAF50
+                                    ).copy(alpha = 0.1f)
+
+                                    statisticsStatus.startsWith("❌") -> androidx.compose.ui.graphics.Color(
+                                        0xFFF44336
+                                    ).copy(alpha = 0.1f)
+
+                                    else -> MaterialTheme.colorScheme.surfaceVariant
+                                }
+                            )
+                        ) {
+                            Text(
+                                text = statisticsStatus,
+                                modifier = Modifier.padding(12.dp),
+                                color = when {
+                                    statisticsStatus.startsWith("✅") -> androidx.compose.ui.graphics.Color(
+                                        0xFF2E7D32
+                                    )
+
+                                    statisticsStatus.startsWith("❌") -> androidx.compose.ui.graphics.Color(
+                                        0xFFD32F2F
+                                    )
+
+                                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
+                }
+            }
         }
 
         // Заглушка когда нет групп

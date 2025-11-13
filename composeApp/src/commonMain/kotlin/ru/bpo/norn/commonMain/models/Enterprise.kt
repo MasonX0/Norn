@@ -1,5 +1,7 @@
 package ru.bpo.norn.commonMain.models
 
+import kotlinx.serialization.Serializable
+
 /**
  * Модель предприятия - базы практики для студентов
  *
@@ -18,6 +20,7 @@ package ru.bpo.norn.commonMain.models
  * Формат загрузки из TXT файла:
  * "Название предприятия, город // должность1 ! ФИО1, должность2 ! ФИО2"
  */
+@Serializable
 data class Enterprise(
     /**
      * Полное официальное название предприятия/организации
@@ -183,6 +186,7 @@ data class Enterprise(
  * - Контактной информации в документах
  * - Формирования отчетов о кадровом обеспечении практики
  */
+@Serializable
 data class PracticeSupervisor(
     /**
      * Полное ФИО руководителя практики

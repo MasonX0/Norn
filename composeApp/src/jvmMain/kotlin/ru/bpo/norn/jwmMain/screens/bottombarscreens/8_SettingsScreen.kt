@@ -55,6 +55,11 @@ fun SettingsScreen(viewModel: NornViewModel) {
             onThemeSwitch = { viewModel.switchTheme() }
         )
 
+        // Секция сброса настроек
+        SettingsResetSection(
+            onResetSettings = { viewModel.resetAllSettings() }
+        )
+
         // Секция информации о проекте с ссылками
         ProjectInfoSection()
 
@@ -208,6 +213,39 @@ private fun AppearanceSection(onThemeSwitch: () -> Unit) {
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
             ) {
                 Text("Сменить тему")
+            }
+        }
+    }
+}
+
+/**
+ * Секция сброса настроек
+ */
+@Composable
+private fun SettingsResetSection(onResetSettings: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                "🔄 Сброс настроек",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+
+            // Кнопка сброса всех настроек
+            Button(
+                onClick = onResetSettings,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError
+                )
+            ) {
+                Text("Сбросить все настройки")
             }
         }
     }

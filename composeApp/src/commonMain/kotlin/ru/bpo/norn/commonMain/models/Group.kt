@@ -1,5 +1,7 @@
 package ru.bpo.norn.commonMain.models
 
+import kotlinx.serialization.Serializable
+
 /**
  * Модель данных учебной группы - контейнер для организации студентов
  *
@@ -21,6 +23,7 @@ package ru.bpo.norn.commonMain.models
  * @property codeOfDirection Код направления подготовки по ФГОС
  * @property nameOfDirection Полное название направления подготовки
  */
+@Serializable
 data class Group(
     /**
      * Уникальное название группы
@@ -236,6 +239,7 @@ data class Group(
  * Все поля являются результатом автоматических вычислений
  * и не редактируются пользователем напрямую.
  */
+@Serializable
 data class GroupStatistics(
     // ========== ОБЩИЕ ПОКАЗАТЕЛИ ==========
 

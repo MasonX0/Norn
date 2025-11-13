@@ -10,8 +10,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
+import ru.bpo.norn.jwmMain.screens.MainScreen
 import ru.bpo.norn.jwmMain.viewmodel.NornViewModel
-import ui.MainScreen
 
 private val DarkColorScheme = darkColorScheme(
     primary = androidx.compose.ui.graphics.Color(0xFFBB86FC),
@@ -30,8 +30,13 @@ fun main() = application {
     val isDarkTheme by viewModel.isDarkTheme.collectAsState()
 
     Window(
-        onCloseRequest = ::exitApplication,
-        title = "Демо приложение с навигацией"
+        onCloseRequest = {
+            // Сохраняем настройки перед закрытием приложения
+            println("💾 Сохранение настроек перед выходом...")
+            viewModel.saveSettingsOnExit()
+            exitApplication()
+        },
+        title = "Norn - Система управления практикой студентов"
     ) {
         MaterialTheme(
             colorScheme = if (isDarkTheme) DarkColorScheme else LightColorScheme

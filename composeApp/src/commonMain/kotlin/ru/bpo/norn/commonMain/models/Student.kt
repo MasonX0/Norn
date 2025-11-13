@@ -1,5 +1,7 @@
 package ru.bpo.norn.commonMain.models
 
+import kotlinx.serialization.Serializable
+
 /**
  * Модель данных студента - центральная сущность системы управления практикой
  *
@@ -15,6 +17,7 @@ package ru.bpo.norn.commonMain.models
  * Данные загружаются из Excel файлов и могут быть отредактированы пользователем
  * через интерфейс приложения.
  */
+@Serializable
 data class Student(
     // ========== ОСНОВНАЯ ИНФОРМАЦИЯ О СТУДЕНТЕ ==========
 

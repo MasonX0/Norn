@@ -1,4 +1,4 @@
-package ui
+package ru.bpo.norn.jwmMain.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -6,9 +6,19 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import ru.bpo.norn.jwmMain.screens.topnavbarscreens.DestinationScreen
-
+import ru.bpo.norn.jwmMain.navigation.BottomNavBar
+import ru.bpo.norn.jwmMain.navigation.TopNavBar
+import ru.bpo.norn.jwmMain.navigation.Screen
 import ru.bpo.norn.jwmMain.viewmodel.NornViewModel
-import viewmodel.Screen
+// Импорты для экранов с их правильными именами
+import ui.InfoScreen
+import ui.SummaryReport
+import ru.bpo.norn.jwmMain.screens.topnavbarscreens.DestinationScreen
+import ui.OrderScreen
+import ui.Enterprises
+import ui.StudentsListScreen
+import ui.StatementsScreen
+import ui.SettingsScreen
 
 /**
  * Главный экран приложения с навигацией и контентом

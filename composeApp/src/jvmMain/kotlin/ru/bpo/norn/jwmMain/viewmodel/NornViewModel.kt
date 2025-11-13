@@ -14,7 +14,8 @@ import ru.bpo.norn.commonMain.models.PracticeSupervisor
 import ru.bpo.norn.commonMain.models.SummaryReportData
 import ru.bpo.norn.commonMain.models.OrderData
 import ru.bpo.norn.commonMain.repository.NornRepository
-import viewmodel.Screen
+import ru.bpo.norn.jwmMain.navigation.Screen
+import ru.bpo.norn.jwmMain.services.AppSettingsService
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -22,51 +23,18 @@ import java.nio.charset.Charset
 
 class NornViewModel {
 
-    // ==================== Базовая директория ====================
+    // ==================== Сервис настроек ====================
+    private val settingsService = AppSettingsService()
+
+    // ==================== Инициализация всех StateFlow полей сначала ====================
+    // Базовая директория
     private val _baseDirectory = MutableStateFlow<File?>(null)
     val baseDirectory: StateFlow<File?> = _baseDirectory.asStateFlow()
-
-    fun selectBaseDirectory(directory: File?) {
-        _baseDirectory.value = directory
-        println("📁 Базовая директория установлена: ${directory?.absolutePath}")
-    }
-
-    fun getStartDirectory(): File {
-        return _baseDirectory.value ?: File(System.getProperty("user.home"))
-    }
-    
-    /**
-     * Проверяет, установлена ли базовая директория
-     */
-    fun isBaseDirectorySet(): Boolean {
-        return _baseDirectory.value != null
-    }
-
-    /**
-     * Настраивает кодировку консоли для корректного отображения русских символов
-     */
-    init {
-        try {
-            System.setProperty("file.encoding", "UTF-8")
-            System.setProperty("console.encoding", "UTF-8")
-            // Для Windows - устанавливаем кодовую страницу
-            if (System.getProperty("os.name").lowercase().contains("windows")) {
-                Runtime.getRuntime().exec("chcp 65001")
-            }
-        } catch (e: Exception) {
-            println("⚠️ Не удалось настроить кодировку консоли: ${e.message}")
-        }
-    }
 
     private val _isDarkTheme = MutableStateFlow<Boolean>(false)
     val isDarkTheme: StateFlow<Boolean> = _isDarkTheme.asStateFlow()
 
-
-    fun switchTheme(): Unit{
-        _isDarkTheme.value=!_isDarkTheme.value
-    }
-
-    // ==================== 1. ОСНОВНЫЕ НАСТРОЙКИ И НАВИГАЦИЯ ====================
+    // Основные настройки и навигация
     private val _currentScreen = MutableStateFlow<Screen>(Screen.Screen1)
     val currentScreen: StateFlow<Screen> = _currentScreen.asStateFlow()
 
@@ -76,55 +44,13 @@ class NornViewModel {
     private val _screen2Data = MutableStateFlow("Привет от экрана 2!")
     val screen2Data: StateFlow<String> = _screen2Data.asStateFlow()
 
-    fun navigateTo(screen: Screen) {
-        _currentScreen.value = screen
-    }
-
-    fun updateScreen1Data(newData: String) {
-        _screen1Data.value = newData
-    }
-
-    fun updateScreen2Data(newData: String) {
-        _screen2Data.value = newData
-    }
-
-    // ==================== 2. РЕПОЗИТОРИЙ И БАЗОВЫЕ ДАННЫЕ ====================
-    private val repository = NornRepository()
-    val groups: StateFlow<List<Group>> = repository.groups
-
-    fun addGroup(group: Group) {
-        repository.addGroup(group)
-    }
-
-    fun addStudentsToGroup(groupName: String, students: List<Student>) {
-        repository.addStudentsToGroup(groupName, students)
-    }
-
-    fun selectStudent(student: Student?) {
-        repository.setSelectedStudent(student)
-    }
-
-    // ==================== 3. ФАЙЛЫ ДЛЯ РАЗНЫХ ЭКРАНОВ ====================
-
-    // 3.1 InfoScreen файлы
+    // Файлы для разных экранов
     private val _reportFile = MutableStateFlow<File?>(null)
     val reportFile: StateFlow<File?> = _reportFile.asStateFlow()
 
     private val _directionFile = MutableStateFlow<File?>(null)
     val directionFile: StateFlow<File?> = _directionFile.asStateFlow()
 
-    fun selectReportFile(file: File) {
-        _reportFile.value = file
-    }
-
-    fun selectDirectionFile(file: File) {
-        _directionFile.value = file
-    }
-
-    // 3.2 SummaryReport файлы
-    // (добавьте при необходимости)
-
-    // 3.3 Destination файлы
     private val _directionTemplateFile = MutableStateFlow<File?>(null)
     val directionTemplateFile: StateFlow<File?> = _directionTemplateFile.asStateFlow()
 
@@ -134,7 +60,7 @@ class NornViewModel {
     private val _directionsOutputFolder = MutableStateFlow<File?>(null)
     val directionsOutputFolder: StateFlow<File?> = _directionsOutputFolder.asStateFlow()
 
-    // Даты для направлений (общие для всей группы)
+    // Даты для направлений
     private val _dateOfDirectionIssue = MutableStateFlow("")
     val dateOfDirectionIssue: StateFlow<String> = _dateOfDirectionIssue.asStateFlow()
 
@@ -144,39 +70,9 @@ class NornViewModel {
     private val _dateOfDepartmentReview = MutableStateFlow("")
     val dateOfDepartmentReview: StateFlow<String> = _dateOfDepartmentReview.asStateFlow()
 
-    fun selectDirectionTemplateFile(file: File?) {
-        _directionTemplateFile.value = file
-    }
-
-    fun selectGroupForDirections(group: Group?) {
-        _selectedGroupForDirections.value = group
-    }
-
-    fun selectDirectionsOutputFolder(folder: File?) {
-        _directionsOutputFolder.value = folder
-    }
-
-    fun updateDateOfDirectionIssue(date: String) {
-        _dateOfDirectionIssue.value = date
-    }
-
-    fun updateDateOfTaskReceived(date: String) {
-        _dateOfTaskReceived.value = date
-    }
-
-    fun updateDateOfDepartmentReview(date: String) {
-        _dateOfDepartmentReview.value = date
-    }
-
-    // 3.4 Order файлы
     private val _orderFile = MutableStateFlow<File?>(null)
     val orderFile: StateFlow<File?> = _orderFile.asStateFlow()
 
-    fun selectOrderFile(file: File) {
-        _orderFile.value = file
-    }
-
-    // 3.5 Enterprises файлы
     private val _enterprisesFile = MutableStateFlow<File?>(null)
     val enterprisesFile: StateFlow<File?> = _enterprisesFile.asStateFlow()
 
@@ -192,8 +88,387 @@ class NornViewModel {
     private val _showEditDialog = MutableStateFlow(false)
     val showEditDialog: StateFlow<Boolean> = _showEditDialog.asStateFlow()
 
+    private val _studentsListFile = MutableStateFlow<File?>(null)
+    val studentsListFile: StateFlow<File?> = _studentsListFile.asStateFlow()
+
+    private val _statementsFile = MutableStateFlow<File?>(null)
+    val statementsFile: StateFlow<File?> = _statementsFile.asStateFlow()
+
+    // StateFlow для работы со студентами
+    private val _selectedGroup = MutableStateFlow<Group?>(null)
+    val selectedGroup: StateFlow<Group?> = _selectedGroup.asStateFlow()
+
+    private val _selectedStudent = MutableStateFlow<Student?>(null)
+    val selectedStudent: StateFlow<Student?> = _selectedStudent.asStateFlow()
+
+    private val _showStudentEditDialog = MutableStateFlow(false)
+    val showStudentEditDialog: StateFlow<Boolean> = _showStudentEditDialog.asStateFlow()
+
+    // Данные отчета по практике
+    private val _summaryReportData = MutableStateFlow(SummaryReportData())
+    val summaryReportData: StateFlow<SummaryReportData> = _summaryReportData.asStateFlow()
+
+    // Статусы генерации документов
+    private val _documentGenerationStatus = MutableStateFlow("")
+    val documentGenerationStatus: StateFlow<String> = _documentGenerationStatus.asStateFlow()
+
+    private val _reportGenerationStatus = MutableStateFlow("")
+    val reportGenerationStatus: StateFlow<String> = _reportGenerationStatus.asStateFlow()
+
+    private val _orderGenerationStatus = MutableStateFlow("")
+    val orderGenerationStatus: StateFlow<String> = _orderGenerationStatus.asStateFlow()
+
+    private val _directionsGenerationStatus = MutableStateFlow("")
+    val directionsGenerationStatus: StateFlow<String> = _directionsGenerationStatus.asStateFlow()
+
+    // OrderData StateFlow
+    private val _orderData = MutableStateFlow(OrderData())
+    val orderData: StateFlow<OrderData> = _orderData.asStateFlow()
+
+    // Репозиторий и базовые данные
+    private val repository = NornRepository()
+    val groups: StateFlow<List<Group>> = repository.groups
+
+    // Mock студент для тестирования
+    private val mockStudent: Student = mockStudent1
+
+    /**
+     * Настраивает кодировку консоли для корректного отображения русских символов
+     * и загружает сохраненные настройки
+     */
+    init {
+        try {
+            System.setProperty("file.encoding", "UTF-8")
+            System.setProperty("console.encoding", "UTF-8")
+            // Для Windows - устанавливаем кодовую страницу
+            if (System.getProperty("os.name").lowercase().contains("windows")) {
+                Runtime.getRuntime().exec("chcp 65001")
+            }
+        } catch (e: Exception) {
+            println("⚠️ Не удалось настроить кодировку консоли: ${e.message}")
+        }
+
+        // Загружаем сохраненные настройки при инициализации
+        loadSavedSettings()
+    }
+
+    /**
+     * Загружает сохраненные настройки из сервиса и применяет их во ViewModel
+     */
+    private fun loadSavedSettings() {
+        try {
+            val settings = settingsService.loadSettings()
+            println("🔄 Загрузка сохраненных настроек...")
+
+            // Применяем основные настройки
+            _isDarkTheme.value = settings.isDarkTheme
+
+            // Для файлов - проверяем существование перед загрузкой
+            settings.baseDirectory?.let { path ->
+                val file = File(path)
+                if (file.exists() && file.isDirectory) {
+                    _baseDirectory.value = file
+                    println("📁 Восстановлена базовая директория: $path")
+                }
+            }
+
+            // Восстанавливаем загруженные группы студентов
+            if (settings.loadedGroups.isNotEmpty()) {
+                println("📚 Восстановление загруженных групп: ${settings.loadedGroups.size}")
+                settings.loadedGroups.forEach { group ->
+                    repository.addGroup(group.copy()) // Создаем копию для избежания проблем с изменяемостью
+                    println("✅ Восстановлена группа: ${group.name} (${group.students.size} студентов)")
+                }
+            }
+
+            // Восстанавливаем загруженные предприятия
+            if (settings.loadedEnterprises.isNotEmpty()) {
+                println("🏢 Восстановление загруженных предприятий: ${settings.loadedEnterprises.size}")
+                _enterprisesList.value = settings.loadedEnterprises
+                println("✅ Восстановлено предприятий: ${settings.loadedEnterprises.size}")
+            }
+
+            // Восстанавливаем пути к документам
+            restoreDocumentFiles(settings)
+
+            // Применяем настройки дат
+            _dateOfDirectionIssue.value = settings.dateOfDirectionIssue
+            _dateOfTaskReceived.value = settings.dateOfTaskReceived
+            _dateOfDepartmentReview.value = settings.dateOfDepartmentReview
+
+            // Применяем данные отчета
+            _summaryReportData.value = settingsService.toSummaryReportData(settings)
+
+            // Применяем данные приказа
+            _orderData.value = settingsService.toOrderData(settings)
+
+            println("✅ Настройки успешно загружены")
+        } catch (e: Exception) {
+            println("❌ Ошибка загрузки настроек: ${e.message}")
+            e.printStackTrace()
+        }
+    }
+
+    /**
+     * Восстанавливает пути к документам и автоматически загружает их содержимое если требуется
+     */
+    private fun restoreDocumentFiles(settings: ru.bpo.norn.commonMain.models.AppSettings) {
+        println("📂 Восстановление путей к документам...")
+
+        // Восстанавливаем файл отчета
+        settings.lastReportFile?.let { path ->
+            val file = File(path)
+            if (file.exists() && file.isFile) {
+                _reportFile.value = file
+                println("📄 Восстановлен файл отчета: ${file.name}")
+            }
+        }
+
+        // Восстанавливаем файл направлений
+        settings.lastDirectionFile?.let { path ->
+            val file = File(path)
+            if (file.exists() && file.isFile) {
+                _directionFile.value = file
+                println("📄 Восстановлен файл направлений: ${file.name}")
+            }
+        }
+
+        // Восстанавливаем шаблон направления
+        settings.lastDirectionTemplateFile?.let { path ->
+            val file = File(path)
+            if (file.exists() && file.isFile) {
+                _directionTemplateFile.value = file
+                println("📄 Восстановлен шаблон направления: ${file.name}")
+            }
+        }
+
+        // Восстанавливаем файл приказа
+        settings.lastOrderFile?.let { path ->
+            val file = File(path)
+            if (file.exists() && file.isFile) {
+                _orderFile.value = file
+                println("📄 Восстановлен файл приказа: ${file.name}")
+            }
+        }
+
+        // Восстанавливаем файл предприятий - НЕ загружаем автоматически если данные уже есть
+        settings.lastEnterprisesFile?.let { path ->
+            val file = File(path)
+            if (file.exists() && file.isFile) {
+                _enterprisesFile.value = file
+                println("📄 Восстановлен файл предприятий: ${file.name}")
+                // Загружаем данные только если список предприятий пуст
+                if (_enterprisesList.value.isEmpty()) {
+                    try {
+                        val enterprises = readEnterprisesFromTxt(file)
+                        println("✅ Автоматически загружено предприятий: ${enterprises.size}")
+                    } catch (e: Exception) {
+                        println("❌ Ошибка автозагрузки предприятий: ${e.message}")
+                    }
+                }
+            }
+        }
+
+        // Восстанавливаем файл студентов - НЕ загружаем автоматически если данные уже есть
+        settings.lastStudentsListFile?.let { path ->
+            val file = File(path)
+            if (file.exists() && file.isFile && file.extension.lowercase() in listOf(
+                    "xlsx",
+                    "xls"
+                )
+            ) {
+                _studentsListFile.value = file
+                println("📄 Восстановлен файл студентов: ${file.name}")
+                // Загружаем данные только если нет загруженных групп
+                if (repository.groups.value.isEmpty()) {
+                    try {
+                        loadStudentsFromExcel(file)
+                        println("✅ Автоматически загружены студенты из файла: ${file.name}")
+                    } catch (e: Exception) {
+                        println("❌ Ошибка автозагрузки студентов: ${e.message}")
+                    }
+                }
+            }
+        }
+
+        // Восстанавливаем файл ведомостей
+        settings.lastStatementsFile?.let { path ->
+            val file = File(path)
+            if (file.exists() && file.isFile) {
+                _statementsFile.value = file
+                println("📄 Восстановлен файл ведомостей: ${file.name}")
+            }
+        }
+
+        // Восстанавливаем папку для направлений
+        settings.lastDirectionsOutputFolder?.let { path ->
+            val folder = File(path)
+            if (folder.exists() && folder.isDirectory) {
+                _directionsOutputFolder.value = folder
+                println("📁 Восстановлена папка для направлений: ${folder.name}")
+            }
+        }
+
+        println("✅ Восстановление документов завершено")
+    }
+
+    /**
+     * Сохраняет текущие настройки в файл
+     */
+    private fun saveCurrentSettings() {
+        try {
+            val currentSettings = settingsService.fromCurrentData(
+                baseDirectory = _baseDirectory.value,
+                isDarkTheme = _isDarkTheme.value,
+                reportFile = _reportFile.value,
+                directionFile = _directionFile.value,
+                directionTemplateFile = _directionTemplateFile.value,
+                orderFile = _orderFile.value,
+                enterprisesFile = _enterprisesFile.value,
+                studentsListFile = _studentsListFile.value,
+                statementsFile = _statementsFile.value,
+                directionsOutputFolder = _directionsOutputFolder.value,
+                dateOfDirectionIssue = _dateOfDirectionIssue.value,
+                dateOfTaskReceived = _dateOfTaskReceived.value,
+                dateOfDepartmentReview = _dateOfDepartmentReview.value,
+                summaryReportData = _summaryReportData.value,
+                orderData = _orderData.value,
+                loadedGroups = repository.groups.value,
+                loadedEnterprises = _enterprisesList.value
+            )
+            settingsService.saveSettings(currentSettings)
+        } catch (e: Exception) {
+            println("❌ Ошибка сохранения настроек: ${e.message}")
+            e.printStackTrace()
+        }
+    }
+
+    /**
+     * Сброс всех настроек к значениям по умолчанию
+     */
+    fun resetAllSettings() {
+        settingsService.resetSettings()
+        // Перезагружаем настройки по умолчанию
+        loadSavedSettings()
+        println("🔄 Все настройки сброшены к значениям по умолчанию")
+    }
+
+    /**
+     * Публичный метод для сохранения настроек при выходе из приложения
+     */
+    fun saveSettingsOnExit() {
+        saveCurrentSettings()
+        println("💾 Настройки сохранены при выходе из приложения")
+    }
+
+    // ==================== МЕТОДЫ УПРАВЛЕНИЯ ====================
+
+    fun selectBaseDirectory(directory: File?) {
+        _baseDirectory.value = directory
+        println("📁 Базовая директория установлена: ${directory?.absolutePath}")
+        saveCurrentSettings()
+    }
+
+    fun getStartDirectory(): File {
+        return _baseDirectory.value ?: File(System.getProperty("user.home"))
+    }
+    
+    /**
+     * Проверяет, установлена ли базовая директория
+     */
+    fun isBaseDirectorySet(): Boolean {
+        return _baseDirectory.value != null
+    }
+
+    fun switchTheme() {
+        _isDarkTheme.value = !_isDarkTheme.value
+        saveCurrentSettings()
+    }
+
+    fun navigateTo(screen: Screen) {
+        _currentScreen.value = screen
+    }
+
+    fun updateScreen1Data(newData: String) {
+        _screen1Data.value = newData
+    }
+
+    fun updateScreen2Data(newData: String) {
+        _screen2Data.value = newData
+    }
+
+    // ==================== 2. РЕПОЗИТОРИЙ И БАЗОВЫЕ ДАННЫЕ ====================
+    fun addGroup(group: Group) {
+        repository.addGroup(group)
+    }
+
+    fun addStudentsToGroup(groupName: String, students: List<Student>) {
+        repository.addStudentsToGroup(groupName, students)
+    }
+
+    fun selectStudent(student: Student?) {
+        repository.setSelectedStudent(student)
+    }
+
+    // ==================== 3. ФАЙЛЫ - МЕТОДЫ УПРАВЛЕНИЯ ====================
+
+    fun selectReportFile(file: File) {
+        _reportFile.value = file
+        saveCurrentSettings()
+    }
+
+    fun selectDirectionFile(file: File) {
+        _directionFile.value = file
+        saveCurrentSettings()
+    }
+
+    fun selectDirectionTemplateFile(file: File?) {
+        _directionTemplateFile.value = file
+        saveCurrentSettings()
+    }
+
+    fun selectGroupForDirections(group: Group?) {
+        _selectedGroupForDirections.value = group
+    }
+
+    fun selectDirectionsOutputFolder(folder: File?) {
+        _directionsOutputFolder.value = folder
+        saveCurrentSettings()
+    }
+
+    fun updateDateOfDirectionIssue(date: String) {
+        _dateOfDirectionIssue.value = date
+        saveCurrentSettings()
+    }
+
+    fun updateDateOfTaskReceived(date: String) {
+        _dateOfTaskReceived.value = date
+        saveCurrentSettings()
+    }
+
+    fun updateDateOfDepartmentReview(date: String) {
+        _dateOfDepartmentReview.value = date
+        saveCurrentSettings()
+    }
+
+    fun selectOrderFile(file: File) {
+        _orderFile.value = file
+        saveCurrentSettings()
+    }
+
     fun selectEnterprisesFile(file: File?) {
         _enterprisesFile.value = file
+        saveCurrentSettings()
+    }
+
+    fun selectStudentsListFile(file: File) {
+        _studentsListFile.value = file
+        saveCurrentSettings()
+    }
+
+    fun selectStatementsFile(file: File) {
+        _statementsFile.value = file
+        saveCurrentSettings()
     }
 
     /**
@@ -209,6 +484,8 @@ class NornViewModel {
                 .toList()
                 .also { list ->
                     _enterprisesList.value = list
+                    // Сохраняем изменения после загрузки предприятий
+                    saveCurrentSettings()
                 }
         } catch (e: Exception) {
             println("❌ Ошибка чтения файла: ${e.message}")
@@ -349,6 +626,8 @@ class NornViewModel {
 
     fun clearEnterprisesList() {
         _enterprisesList.value = emptyList()
+        // Сохраняем изменения after clearing предприятий
+        saveCurrentSettings()
     }
 
     fun selectEnterpriseForEditing(enterprise: Enterprise) {
@@ -387,6 +666,9 @@ class NornViewModel {
         _showEditDialog.value = false
         _selectedEnterprise.value = null
         println("✅ Данные предприятия обновлены: ${updatedEnterprise.name}")
+
+        // Сохраняем изменения после обновления предприятия
+        saveCurrentSettings()
     }
 
     fun selectEnterpriseForDisplay(enterprise: Enterprise) {
@@ -399,36 +681,7 @@ class NornViewModel {
         _selectedSupervisor.value = supervisor
     }
 
-    // 3.6 StudentsList файлы
-    private val _studentsListFile = MutableStateFlow<File?>(null)
-    val studentsListFile: StateFlow<File?> = _studentsListFile.asStateFlow()
-
-    fun selectStudentsListFile(file: File) {
-        _studentsListFile.value = file
-    }
-
-    // 3.7 Statements файлы
-    private val _statementsFile = MutableStateFlow<File?>(null)
-    val statementsFile: StateFlow<File?> = _statementsFile.asStateFlow()
-
-    fun selectStatementsFile(file: File) {
-        _statementsFile.value = file
-    }
-
     // ==================== 4. СТУДЕНТЫ И ГРУППЫ ====================
-
-    // StateFlow для работы со студентами
-    private val _selectedGroup = MutableStateFlow<Group?>(null)
-    val selectedGroup: StateFlow<Group?> = _selectedGroup.asStateFlow()
-
-    private val _selectedStudent = MutableStateFlow<Student?>(null)
-    val selectedStudent: StateFlow<Student?> = _selectedStudent.asStateFlow()
-
-    private val _showStudentEditDialog = MutableStateFlow(false)
-    val showStudentEditDialog: StateFlow<Boolean> = _showStudentEditDialog.asStateFlow()
-
-    // Mock студент для тестирования
-    private val mockStudent: Student = mockStudent1
 
     /**
      * Загружает студентов из Excel файла и добавляет в группу
@@ -452,6 +705,8 @@ class NornViewModel {
             _selectedGroup.value = group
 
             println("✅ Студенты добавлены в группу: $groupName")
+            // Сохраняем изменения после добавления студентов
+            saveCurrentSettings()
 
         } catch (e: Exception) {
             println("💥 Ошибка загрузки: ${e.message}")
@@ -475,13 +730,20 @@ class NornViewModel {
         if (_selectedGroup.value?.name == group.name) {
             _selectedGroup.value = repository.groups.value.firstOrNull()
         }
+
+        // Сохраняем изменения после удаления группы
+        saveCurrentSettings()
     }
+
     fun updateGroupData(updatedGroup: Group) {
         repository.updateGroup(updatedGroup)
         // Обновляем выбранную группу если она та же самая
         if (_selectedGroup.value?.name == updatedGroup.name) {
             _selectedGroup.value = updatedGroup
         }
+
+        // Сохраняем изменения после обновления группы
+        saveCurrentSettings()
     }
 
     fun updateGroupStudents(groupName: String, students: List<Student>) {
@@ -492,6 +754,9 @@ class NornViewModel {
             _selectedGroup.value = repository.getGroupByName(groupName)
         }
         println("✅ [ViewModel] Студенты обновлены, всего: ${students.size}")
+
+        // Сохраняем изменения после обновления студентов
+        saveCurrentSettings()
     }
     /**
      * Парсит студентов из Excel файла
@@ -675,6 +940,9 @@ class NornViewModel {
             _showStudentEditDialog.value = false
 
             println("✅ Данные студента обновлены: ${updatedStudent.name}")
+
+            // Сохраняем изменения после обновления данных студента
+            saveCurrentSettings()
         } else {
             println("❌ Отсутствуют данные: группа=${currentGroup?.name}, студент=${originalStudent?.name}")
         }
@@ -690,32 +958,14 @@ class NornViewModel {
 
     // ==================== 5. ДАННЫЕ ОТЧЕТА ПО ПРАКТИКЕ ====================
 
-    private val _summaryReportData = MutableStateFlow(SummaryReportData())
-    val summaryReportData: StateFlow<SummaryReportData> = _summaryReportData.asStateFlow()
-
-    // Статусы генерации документов - раздельные для приказа, отчета, направлений
-    private val _documentGenerationStatus = MutableStateFlow("")
-    val documentGenerationStatus: StateFlow<String> = _documentGenerationStatus.asStateFlow()
-
-    private val _reportGenerationStatus = MutableStateFlow("")
-    val reportGenerationStatus: StateFlow<String> = _reportGenerationStatus.asStateFlow()
-
-    private val _orderGenerationStatus = MutableStateFlow("")
-    val orderGenerationStatus: StateFlow<String> = _orderGenerationStatus.asStateFlow()
-
-    private val _directionsGenerationStatus = MutableStateFlow("")
-    val directionsGenerationStatus: StateFlow<String> = _directionsGenerationStatus.asStateFlow()
-
-    // ==================== OrderData StateFlow ====================
-    private val _orderData = MutableStateFlow(OrderData())
-    val orderData: StateFlow<OrderData> = _orderData.asStateFlow()
-
     fun updateOrderData(data: OrderData) {
         _orderData.value = data
+        saveCurrentSettings()
     }
 
     fun updateSummaryReportData(data: SummaryReportData) {
         _summaryReportData.value = data
+        saveCurrentSettings()
     }
 
     /**

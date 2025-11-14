@@ -523,6 +523,7 @@ private fun GroupParametersEditDialog(
     var groupName by remember { mutableStateOf(currentGroup.name) }
     var codeOfDirection by remember { mutableStateOf(currentGroup.codeOfDirection) }
     var nameOfDirection by remember { mutableStateOf(currentGroup.nameOfDirection) }
+    var course by remember { mutableStateOf(currentGroup.course.toString()) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -537,13 +538,29 @@ private fun GroupParametersEditDialog(
                     label = { Text("Название группы") },
                     modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
-                    value = codeOfDirection,
-                    onValueChange = { codeOfDirection = it },
-                    label = { Text("Код направления") },
-                    placeholder = { Text("09.03.01") },
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = codeOfDirection,
+                        onValueChange = { codeOfDirection = it },
+                        label = { Text("Код направления") },
+                        placeholder = { Text("09.03.01") },
+                        modifier = Modifier.weight(2f)
+                    )
+                    OutlinedTextField(
+                        value = course,
+                        onValueChange = { newValue ->
+                            // Разрешаем только цифры от 1 до 6
+                            if (newValue.isEmpty() || (newValue.toIntOrNull()
+                                    ?.let { it in 1..6 } == true)
+                            ) {
+                                course = newValue
+                            }
+                        },
+                        label = { Text("Курс") },
+                        placeholder = { Text("1-6") },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
                 OutlinedTextField(
                     value = nameOfDirection,
                     onValueChange = { nameOfDirection = it },
@@ -556,6 +573,11 @@ private fun GroupParametersEditDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                Text(
+                    "📚 Курс рассчитывается автоматически из названия группы, но можно изменить вручную",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         },
         confirmButton = {
@@ -564,7 +586,8 @@ private fun GroupParametersEditDialog(
                 val updatedGroup = currentGroup.copy(
                     name = groupName,
                     codeOfDirection = codeOfDirection,
-                    nameOfDirection = nameOfDirection
+                    nameOfDirection = nameOfDirection,
+                    course = course.toIntOrNull() ?: currentGroup.course
                 )
 
                 // Обновляем группу
@@ -574,7 +597,7 @@ private fun GroupParametersEditDialog(
                 currentGroup.students.forEach { student ->
                     val updatedStudent = Student(
                         name = student.name,
-                        course = student.course,
+                        course = course.toIntOrNull() ?: student.course,
                         codeOfDirection = codeOfDirection,
                         nameOfDirection = nameOfDirection,
                         group = groupName,
@@ -850,6 +873,7 @@ private fun GroupInfoSection(
                 Column {
                     Text("🎓 Группа: ${group.name}", style = MaterialTheme.typography.titleMedium)
                     Text("Студентов: ${group.students.size}")
+                    Text("Курс: ${group.course}")
                     Text("Направление: ${group.nameOfDirection}")
                     Text("Код направления: ${group.codeOfDirection}")
                 }

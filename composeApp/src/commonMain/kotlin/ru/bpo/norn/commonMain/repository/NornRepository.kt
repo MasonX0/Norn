@@ -48,14 +48,9 @@ class NornRepository {
             val updatedStudents = existingGroup.students + students
             currentGroups[groupIndex] = existingGroup.copy(students = updatedStudents)
         } else {
-            // Создаем новую группу с дефолтными параметрами направления
-            val newGroup = Group(
-                name = groupName,
-                students = students,
-                codeOfDirection = "09.03.01",
-                nameOfDirection = "Информатика и вычислительная техника"
-            )
-            currentGroups.add(newGroup)
+            // Создаем новую группу с автоматическим расчетом курса из названия
+            val newGroup = Group(groupName)
+            currentGroups.add(newGroup.copy(students = students))
         }
 
         _groups.value = currentGroups

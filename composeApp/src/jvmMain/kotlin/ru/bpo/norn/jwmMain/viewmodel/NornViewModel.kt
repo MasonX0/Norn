@@ -125,6 +125,10 @@ class NornViewModel {
     private val _statisticsGenerationStatus = MutableStateFlow("")
     val statisticsGenerationStatus: StateFlow<String> = _statisticsGenerationStatus.asStateFlow()
 
+    // StateFlow для выбора групп для генерации приказа
+    private val _selectedGroupsForOrder = MutableStateFlow<Set<String>>(emptySet())
+    val selectedGroupsForOrder: StateFlow<Set<String>> = _selectedGroupsForOrder.asStateFlow()
+
     // OrderData StateFlow
     private val _orderData = MutableStateFlow(OrderData())
     val orderData: StateFlow<OrderData> = _orderData.asStateFlow()
@@ -404,6 +408,10 @@ class NornViewModel {
     // ==================== 2. РЕПОЗИТОРИЙ И БАЗОВЫЕ ДАННЫЕ ====================
     fun addGroup(group: Group) {
         repository.addGroup(group)
+        // Автоматически добавляем новую группу в выбор для приказа
+        val currentSelection = _selectedGroupsForOrder.value.toMutableSet()
+        currentSelection.add(group.name)
+        _selectedGroupsForOrder.value = currentSelection
     }
 
     fun addStudentsToGroup(groupName: String, students: List<Student>) {
@@ -973,6 +981,34 @@ class NornViewModel {
     }
 
     /**
+     * Переключает выбор группы для генерации приказа
+     */
+    fun toggleGroupForOrder(groupName: String) {
+        val currentSelection = _selectedGroupsForOrder.value.toMutableSet()
+        if (currentSelection.contains(groupName)) {
+            currentSelection.remove(groupName)
+        } else {
+            currentSelection.add(groupName)
+        }
+        _selectedGroupsForOrder.value = currentSelection
+    }
+
+    /**
+     * Выбирает все группы для генерации приказа
+     */
+    fun selectAllGroupsForOrder() {
+        val allGroupNames = repository.groups.value.map { it.name }.toSet()
+        _selectedGroupsForOrder.value = allGroupNames
+    }
+
+    /**
+     * Снимает выбор со всех групп для генерации приказа
+     */
+    fun clearGroupsForOrder() {
+        _selectedGroupsForOrder.value = emptySet()
+    }
+
+    /**
      * Подсчитывает статистику студентов по группам и типам предприятий
      */
     fun getGroupStatistics(): Map<String, ru.bpo.norn.commonMain.models.GroupStatistics> {
@@ -1041,19 +1077,38 @@ class NornViewModel {
 
             val outputFile = File(getOutputDirectory("Приказы"), "Приказ_по_практике.docx")
 
-            // Получаем всех студентов из всех групп
-            val allStudents = repository.groups.value.flatMap { it.students }
+            // Получаем студентов только из выбранных групп
+            val selectedGroupNames = _selectedGroupsForOrder.value
+            val allStudents = if (selectedGroupNames.isEmpty()) {
+                // Если группы не выбраны, используем всех студентов (обратная совместимость)
+                repository.groups.value.flatMap { it.students }
+            } else {
+                // Используем только студентов из выбранных групп
+                repository.groups.value
+                    .filter { selectedGroupNames.contains(it.name) }
+                    .flatMap { it.students }
+            }
 
             if (allStudents.isEmpty()) {
-                _orderGenerationStatus.value = "❌ Нет загруженных студентов для создания приказа"
-                println("❌ Нет загруженных студентов для создания приказа")
+                _orderGenerationStatus.value = if (selectedGroupNames.isEmpty()) {
+                    "❌ Нет загруженных студентов для создания приказа"
+                } else {
+                    "❌ В выбранных группах нет студентов для создания приказа"
+                }
+                println("❌ Нет студентов для создания приказа")
                 return false
             }
 
             val success = createOrderDocument(allStudents, orderData, outputFile)
 
             if (success) {
-                _orderGenerationStatus.value = "✅ Приказ создан: ${outputFile.absolutePath}"
+                val groupsInfo = if (selectedGroupNames.isEmpty()) {
+                    "всех групп"
+                } else {
+                    "групп: ${selectedGroupNames.joinToString(", ")}"
+                }
+                _orderGenerationStatus.value =
+                    "✅ Приказ создан для $groupsInfo: ${outputFile.absolutePath}"
                 println("✅ Приказ создан: ${outputFile.absolutePath}")
                 true
             } else {

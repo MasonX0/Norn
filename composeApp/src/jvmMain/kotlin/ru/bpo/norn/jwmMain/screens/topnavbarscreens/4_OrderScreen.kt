@@ -1,6 +1,7 @@
 package ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -14,6 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import ru.bpo.norn.commonMain.models.OrderData
 import ru.bpo.norn.commonMain.models.Student
+import ru.bpo.norn.commonMain.models.Group
 import ru.bpo.norn.jwmMain.viewmodel.NornViewModel
 
 /**
@@ -26,20 +28,25 @@ fun OrderScreen(viewModel: NornViewModel) {
     // Подписка на состояния из ViewModel
     val orderData by viewModel.orderData.collectAsState()
     val groups by viewModel.groups.collectAsState()
+    val selectedGroupsForOrder by viewModel.selectedGroupsForOrder.collectAsState()
 
-    // Получаем всех студентов из всех групп для статистики и группировки
-    val allStudents = groups.flatMap { it.students }
+    // Получаем студентов из выбранных групп для приказа (или из всех, если ничего не выбрано)
+    val studentsForOrder = if (selectedGroupsForOrder.isEmpty()) {
+        groups.flatMap { it.students }
+    } else {
+        groups.filter { selectedGroupsForOrder.contains(it.name) }.flatMap { it.students }
+    }
     
     // Группировка студентов по типу финансирования для разных секций приказа
-    val budgetStudents = allStudents.filter {
+    val budgetStudents = studentsForOrder.filter {
         it.formOfStudy.contains("бюджет", ignoreCase = true) ||
                 (!it.withPayment && !it.formOfStudy.contains("платн", ignoreCase = true) && 
                  !it.formOfStudy.contains("целев", ignoreCase = true))
     }
-    val targetStudents = allStudents.filter {
+    val targetStudents = studentsForOrder.filter {
         it.formOfStudy.contains("целев", ignoreCase = true)
     }
-    val paidStudents = allStudents.filter {
+    val paidStudents = studentsForOrder.filter {
         it.withPayment || it.formOfStudy.contains("платн", ignoreCase = true)
     }
 
@@ -78,12 +85,30 @@ fun OrderScreen(viewModel: NornViewModel) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
+                    // Информация о выбранных группах
+                    if (selectedGroupsForOrder.isNotEmpty()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("🎓 Выбрано групп:")
+                            Text(
+                                "${selectedGroupsForOrder.size} из ${groups.size}",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text("📊 Всего студентов:")
-                        Text("${allStudents.size}", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "${studentsForOrder.size}",
+                            style = MaterialTheme.typography.titleMedium
+                        )
                     }
 
                     Row(
@@ -110,7 +135,7 @@ fun OrderScreen(viewModel: NornViewModel) {
                         Text("${paidStudents.size}", color = MaterialTheme.colorScheme.tertiary)
                     }
 
-                    if (allStudents.isEmpty()) {
+                    if (studentsForOrder.isEmpty()) {
                         Text(
                             "⚠️ Нет загруженных студентов. Загрузите списки студентов в разделе 'Студенты'",
                             color = MaterialTheme.colorScheme.error,
@@ -120,19 +145,30 @@ fun OrderScreen(viewModel: NornViewModel) {
                 }
             }
 
+            // Секция выбора групп для приказа
+            if (groups.isNotEmpty()) {
+                GroupSelectionForOrderCard(
+                    groups = groups,
+                    selectedGroups = selectedGroupsForOrder,
+                    onToggleGroup = { groupName -> viewModel.toggleGroupForOrder(groupName) },
+                    onSelectAll = { viewModel.selectAllGroupsForOrder() },
+                    onClearAll = { viewModel.clearGroupsForOrder() }
+                )
+            }
+
             // Кнопка генерации приказа
             Button(
                 onClick = {
                     viewModel.generateOrderDocument(orderData)
                 },
-                enabled = allStudents.isNotEmpty(),
+                enabled = studentsForOrder.isNotEmpty(),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("📄 Сгенерировать приказ")
             }
 
             // Информация о месте сохранения
-            if (allStudents.isNotEmpty()) {
+            if (studentsForOrder.isNotEmpty()) {
                 Text(
                     "💾 Приказ будет сохранен: ${viewModel.getOutputDirectory("Приказы").absolutePath}/Приказ_по_практике.docx",
                     style = MaterialTheme.typography.bodySmall,
@@ -730,5 +766,263 @@ fun calculateStreamName(students: List<Student>): String {
         streams.joinToString(" и ")
     } else {
         "БПО09-24 и БПО09и-24" // fallback к дефолтному значению
+    }
+}
+
+/**
+ * Карточка для выбора групп, которые будут включены в приказ
+ */
+@Composable
+private fun GroupSelectionForOrderCard(
+    groups: List<Group>,
+    selectedGroups: Set<String>,
+    onToggleGroup: (String) -> Unit,
+    onSelectAll: () -> Unit,
+    onClearAll: () -> Unit
+) {
+    // Локальное состояние для фильтра по курсу
+    var selectedCourseFilter by remember { mutableStateOf<Int?>(null) }
+
+    // Получаем уникальные курсы из всех групп
+    val availableCourses = groups.map { it.course }.toSet().sorted()
+
+    // Фильтруем группы по выбранному курсу
+    val filteredGroups = if (selectedCourseFilter == null) {
+        groups
+    } else {
+        groups.filter { it.course == selectedCourseFilter }
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "🎓 Выбор групп для приказа:",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    TextButton(onClick = {
+                        // Выбираем все отфильтрованные группы
+                        filteredGroups.forEach { group ->
+                            if (!selectedGroups.contains(group.name)) {
+                                onToggleGroup(group.name)
+                            }
+                        }
+                    }) {
+                        Text("Выбрать ${if (selectedCourseFilter != null) "отфильтрованные" else "все"}")
+                    }
+                    TextButton(onClick = onClearAll) {
+                        Text("Очистить")
+                    }
+                }
+            }
+
+            // Фильтр по курсу
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        "📚 Фильтр по курсу:",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Кнопка "Все курсы"
+                        FilterChip(
+                            onClick = { selectedCourseFilter = null },
+                            label = { Text("Все курсы") },
+                            selected = selectedCourseFilter == null,
+                            leadingIcon = if (selectedCourseFilter == null) {
+                                {
+                                    Text("V")
+                                }
+                            } else null
+                        )
+
+                        // Кнопки для каждого курса
+                        availableCourses.forEach { course ->
+                            val groupsForCourse = groups.filter { it.course == course }
+                            FilterChip(
+                                onClick = {
+                                    selectedCourseFilter =
+                                        if (selectedCourseFilter == course) null else course
+                                },
+                                label = { Text("${course} курс (${groupsForCourse.size})") },
+                                selected = selectedCourseFilter == course,
+                                leadingIcon = if (selectedCourseFilter == course) {
+                                    {
+                                        Text("V")
+                                    }
+                                } else null
+                            )
+                        }
+                    }
+
+                    // Информация о фильтрации
+                    if (selectedCourseFilter != null) {
+                        Text(
+                            "🔍 Показаны группы ${selectedCourseFilter} курса: ${filteredGroups.size} из ${groups.size}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                    }
+                }
+            }
+
+            // Информация о выборе
+            if (selectedGroups.isEmpty()) {
+                Text(
+                    "💡 Группы не выбраны - будут использованы все загруженные группы",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                val selectedGroupsInFilter =
+                    selectedGroups.intersect(filteredGroups.map { it.name }.toSet()).size
+                Text(
+                    "✅ Выбрано групп: ${selectedGroups.size} из ${groups.size}" +
+                            if (selectedCourseFilter != null) " (в фильтре: $selectedGroupsInFilter из ${filteredGroups.size})" else "",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            // Список групп с чекбоксами (отфильтрованный)
+            LazyColumn(
+                modifier = Modifier.heightIn(max = 250.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                items(filteredGroups) { group ->
+                    GroupCheckboxItem(
+                        group = group,
+                        isSelected = selectedGroups.contains(group.name),
+                        onToggle = { onToggleGroup(group.name) }
+                    )
+                }
+
+                // Показываем сообщение если нет групп в фильтре
+                if (filteredGroups.isEmpty() && selectedCourseFilter != null) {
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+                            )
+                        ) {
+                            Text(
+                                text = "🔍 Нет групп ${selectedCourseFilter} курса",
+                                modifier = Modifier.padding(16.dp),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Элемент группы с чекбоксом
+ */
+@Composable
+private fun GroupCheckboxItem(
+    group: Group,
+    isSelected: Boolean,
+    onToggle: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onToggle() },
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) {
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            }
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Checkbox(
+                checked = isSelected,
+                onCheckedChange = { onToggle() }
+            )
+
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = group.name,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (isSelected) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    }
+                )
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text(
+                        text = "${group.students.size} студентов",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Text(
+                        text = "${group.course} курс",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                }
+            }
+
+            if (isSelected) {
+                Text(
+                    text = "V",
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
+        }
     }
 }

@@ -22,7 +22,7 @@ import javax.swing.filechooser.FileNameExtensionFilter
 
 /**
  * Экран генерации сводного отчета по практике
- * Отображает статистику по группам и позволяет генерировать отчет в формате Word
+ * Отображает статистику по потокам и позволяет генерировать отчет в формате Word
  * @param viewModel ViewModel для управления данными отчета
  */
 @Composable
@@ -34,7 +34,7 @@ fun SummaryReport(viewModel: NornViewModel) {
     var generationResult by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
 
-    // Получаем данные отчета и статистику групп
+    // Получаем данные отчета и статистику по группам
     val summaryReportData by viewModel.summaryReportData.collectAsState()
     val groupStatistics = remember(
         viewModel.groups.collectAsState().value,
@@ -53,7 +53,7 @@ fun SummaryReport(viewModel: NornViewModel) {
         // Левая часть - основная таблица и управление
         MainReportSection(
             summaryReportData = summaryReportData,
-            groupStatistics = groupStatistics,
+            streamStatistics = groupStatistics,
             viewModel = viewModel,
             generationResult = generationResult,
             isLoading = isLoading,
@@ -75,12 +75,15 @@ fun SummaryReport(viewModel: NornViewModel) {
 @Composable
 private fun MainReportSection(
     summaryReportData: SummaryReportData,
-    groupStatistics: Map<String, GroupStatistics>,
+    streamStatistics: Map<String, GroupStatistics>,
     viewModel: NornViewModel,
     generationResult: String?,
     isLoading: Boolean,
     modifier: Modifier = Modifier
 ) {
+    // Группируем статистику по потокам
+    val groupedStreamStatistics = groupStatisticsByStream(streamStatistics)
+
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(15.dp)
@@ -96,8 +99,8 @@ private fun MainReportSection(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             item {
-                // Таблица статистики групп
-                SummaryTable(groupStatistics)
+                // Таблица статистики по потокам
+                SummaryTable(groupedStreamStatistics)
             }
 
             item {
@@ -111,7 +114,7 @@ private fun MainReportSection(
         GenerateReportButton(
             viewModel = viewModel,
             summaryReportData = summaryReportData,
-            groupStatistics = groupStatistics
+            streamStatistics = groupedStreamStatistics
         )
 
         // Статус генерации документа
@@ -120,7 +123,7 @@ private fun MainReportSection(
         // Информация о состоянии
         ReportStatusInfo(
             viewModel = viewModel,
-            groupStatistics = groupStatistics,
+            streamStatistics = groupedStreamStatistics,
             generationResult = generationResult,
             isLoading = isLoading
         )
@@ -155,7 +158,7 @@ private fun ReportHeader(summaryReportData: SummaryReportData) {
 private fun GenerateReportButton(
     viewModel: NornViewModel,
     summaryReportData: SummaryReportData,
-    groupStatistics: Map<String, GroupStatistics>
+    streamStatistics: Map<String, GroupStatistics>
 ) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -212,7 +215,7 @@ private fun DocumentGenerationStatus(viewModel: NornViewModel) {
 @Composable
 private fun ReportStatusInfo(
     viewModel: NornViewModel,
-    groupStatistics: Map<String, GroupStatistics>,
+    streamStatistics: Map<String, GroupStatistics>,
     generationResult: String?,
     isLoading: Boolean
 ) {
@@ -226,14 +229,14 @@ private fun ReportStatusInfo(
         )
 
         // Статистика по загруженным данным
-        val totalStudents = groupStatistics.values.sumOf { it.totalStudents }
-        val totalGroups = groupStatistics.size
+        val totalStudents = streamStatistics.values.sumOf { it.totalStudents }
+        val totalStreams = streamStatistics.size
 
-        Text("Загружено групп: $totalGroups")
+        Text("Загружено потоков: $totalStreams")
         Text("Всего студентов: $totalStudents")
 
         // Статус готовности
-        if (totalGroups > 0) {
+        if (totalStreams > 0) {
             Text(
                 "✅ Готов к генерации отчета",
                 color = MaterialTheme.colorScheme.primary,
@@ -293,12 +296,12 @@ private fun EditFormSection(
 }
 
 /**
- * Основная таблица сводного отчета с статистикой по группам
+ * Основная таблица сводного отчета с статистикой по потокам
  * Содержит две секции: статистика по местам практики и результаты защиты
  */
 @Composable
-fun SummaryTable(groupStatistics: Map<String, GroupStatistics>) {
-    if (groupStatistics.isEmpty()) {
+fun SummaryTable(streamStatistics: Map<String, GroupStatistics>) {
+    if (streamStatistics.isEmpty()) {
         // Заглушка когда нет данных
         EmptyDataPlaceholder()
         return
@@ -318,8 +321,8 @@ fun SummaryTable(groupStatistics: Map<String, GroupStatistics>) {
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
-            // Таблица статистики по местам практики
-            PracticeStatisticsTable(groupStatistics)
+            // Таблица статистики по местам практики (по потокам)
+            PracticeStatisticsTable(streamStatistics)
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -330,8 +333,8 @@ fun SummaryTable(groupStatistics: Map<String, GroupStatistics>) {
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
-            // Таблица результатов защиты
-            DefenseResultsTable(groupStatistics)
+            // Таблица результатов защиты (по потокам)
+            DefenseResultsTable(streamStatistics)
         }
     }
 }
@@ -362,7 +365,7 @@ private fun EmptyDataPlaceholder() {
  * Таблица статистики по местам практики
  */
 @Composable
-private fun PracticeStatisticsTable(groupStatistics: Map<String, GroupStatistics>) {
+private fun PracticeStatisticsTable(streamStatistics: Map<String, GroupStatistics>) {
     // Заголовки колонок
     Row(
         modifier = Modifier.fillMaxWidth()
@@ -370,7 +373,7 @@ private fun PracticeStatisticsTable(groupStatistics: Map<String, GroupStatistics
             .padding(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        TableHeaderCell("Группа", Modifier.weight(1.5f))
+        TableHeaderCell("Поток", Modifier.weight(1.5f))
         TableHeaderCell("Сроки практики", Modifier.weight(1.5f))
         TableHeaderCell(
             "Вид практики\n(учебная, произв.,\nпреддипломная, НИР)",
@@ -388,9 +391,9 @@ private fun PracticeStatisticsTable(groupStatistics: Map<String, GroupStatistics
 
     Divider()
 
-    // Строки данных для каждой группы
-    groupStatistics.forEach { (groupName, stats) ->
-        PracticeStatisticsRow(groupName, stats)
+    // Строки данных для каждого потока
+    streamStatistics.forEach { (streamName, stats) ->
+        PracticeStatisticsRow(streamName, stats)
 
         // Дополнительная строка для иностранных студентов (если есть)
         if (stats.foreignStudents > 0) {
@@ -402,16 +405,16 @@ private fun PracticeStatisticsTable(groupStatistics: Map<String, GroupStatistics
 }
 
 /**
- * Строка данных по статистике практики для группы
+ * Строка данных по статистике практики для потока
  */
 @Composable
-private fun PracticeStatisticsRow(groupName: String, stats: GroupStatistics) {
+private fun PracticeStatisticsRow(streamName: String, stats: GroupStatistics) {
     Row(
         modifier = Modifier.fillMaxWidth()
             .padding(vertical = 4.dp, horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        TableDataCell(groupName, Modifier.weight(1.5f))
+        TableDataCell(streamName, Modifier.weight(1.5f))
         TableDataCell(
             stats.practiceStartDate + "-" + stats.practiceEndDate,
             Modifier.weight(1.5f)
@@ -456,7 +459,7 @@ private fun ForeignStudentsRow(stats: GroupStatistics) {
  * Таблица результатов защиты отчетов
  */
 @Composable
-private fun DefenseResultsTable(groupStatistics: Map<String, GroupStatistics>) {
+private fun DefenseResultsTable(streamStatistics: Map<String, GroupStatistics>) {
     // Заголовки для результатов защиты
     Row(
         modifier = Modifier.fillMaxWidth()
@@ -477,7 +480,7 @@ private fun DefenseResultsTable(groupStatistics: Map<String, GroupStatistics>) {
             .padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(modifier = Modifier.weight(2f)) // Пустое место под "Группа"
+        Box(modifier = Modifier.weight(2f)) // Пустое место под "Поток"
         Box(modifier = Modifier.weight(1f)) // Пустое место под "Количество студентов"
         Row(modifier = Modifier.weight(3f)) {
             TableHeaderCell("отлично", Modifier.weight(1f))
@@ -489,24 +492,24 @@ private fun DefenseResultsTable(groupStatistics: Map<String, GroupStatistics>) {
 
     Divider()
 
-    // Данные результатов защиты по группам
-    groupStatistics.forEach { (groupName, stats) ->
-        DefenseResultsRow(groupName, stats)
+    // Данные результатов защиты по потокам
+    streamStatistics.forEach { (streamName, stats) ->
+        DefenseResultsRow(streamName, stats)
         Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
     }
 }
 
 /**
- * Строка результатов защиты для группы
+ * Строка результатов защиты для потока
  */
 @Composable
-private fun DefenseResultsRow(groupName: String, stats: GroupStatistics) {
+private fun DefenseResultsRow(streamName: String, stats: GroupStatistics) {
     Row(
         modifier = Modifier.fillMaxWidth()
             .padding(vertical = 4.dp, horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        TableDataCell(groupName, Modifier.weight(2f))
+        TableDataCell(streamName, Modifier.weight(2f))
         TableDataCell(stats.totalStudents.toString(), Modifier.weight(1f))
         Row(modifier = Modifier.weight(3f)) {
             TableDataCell(stats.excellentGrades.toString(), Modifier.weight(1f))
@@ -734,5 +737,99 @@ fun TableDataCell(text: String, modifier: Modifier = Modifier) {
         style = MaterialTheme.typography.bodySmall,
         textAlign = TextAlign.Center,
         fontSize = 11.sp
+    )
+}
+
+/**
+ * Группирует статистику групп по потокам
+ * Например, БПО09и-23-01 и БПО09и-23-02 становятся БПО09и-23
+ * @param groupStatistics Исходная статистика по группам
+ * @return Статистика, сгруппированная по потокам
+ */
+private fun groupStatisticsByStream(groupStatistics: Map<String, GroupStatistics>): Map<String, GroupStatistics> {
+    return groupStatistics.entries
+        .groupBy { entry ->
+            // Извлекаем поток из названия группы (убираем последний сегмент после дефиса)
+            extractStreamFromGroupName(entry.key)
+        }
+        .mapValues { (streamName, groupEntries) ->
+            // Объединяем статистику всех групп в потоке
+            val allStats = groupEntries.map { entry -> entry.value }
+            combineGroupStatistics(streamName, allStats)
+        }
+}
+
+/**
+ * Извлекает название потока из названия группы
+ * Объединяет потоки с "и" в конце с обычными потоками
+ *
+ * Примеры работы:
+ * - "БПО09-24-01" → "БПО09-24"
+ * - "БПО09и-24-01" → "БПО09-24" (убирается "и")
+ * - "БПО09и-24-02" → "БПО09-24" (убирается "и")
+ * - "ИВТ03-24-01" → "ИВТ03-24"
+ * - "ПИ09и-25-03" → "ПИ09-25" (убирается "и")
+ * - "МатМод-22-01" → "МатМод-22"
+ *
+ * В результате группы с одинаковыми потоками будут объединены:
+ * - БПО09-24-01 + БПО09и-24-01 + БПО09и-24-02 → БПО09-24 (суммарная статистика)
+ */
+private fun extractStreamFromGroupName(groupName: String): String {
+    val parts = groupName.split("-")
+    return if (parts.size >= 2) {
+        parts.dropLast(1).joinToString("-")
+    } else {
+        groupName // Если формат не соответствует ожидаемому, возвращаем как есть
+    }
+}
+
+/**
+ * Объединяет статистику нескольких групп в один поток
+ */
+private fun combineGroupStatistics(streamName: String, statsList: List<GroupStatistics>): GroupStatistics {
+    if (statsList.isEmpty()) {
+        // Возвращаем пустую статистику если список пуст
+        return GroupStatistics(
+            totalStudents = 0,
+            foreignStudents = 0,
+            paidPracticeStudents = 0,
+            foreignEnterprises = 0,
+            rfEnterprises = 0,
+            soluniTyulyukInzer = 0,
+            departmentStudents = 0,
+            universitySubdivisions = 0,
+            baseDepartments = 0,
+            excellentGrades = 0,
+            goodGrades = 0,
+            satisfactoryGrades = 0,
+            notDefended = 0,
+            practiceStartDate = "",
+            practiceEndDate = "",
+            practiceType = ""
+        )
+    }
+    
+    // Берем первую статистику как базу для временных данных
+    val firstStats = statsList.first()
+    
+    return GroupStatistics(
+        totalStudents = statsList.sumOf { it.totalStudents },
+        foreignStudents = statsList.sumOf { it.foreignStudents },
+        paidPracticeStudents = statsList.sumOf { it.paidPracticeStudents },
+        foreignEnterprises = statsList.sumOf { it.foreignEnterprises },
+        rfEnterprises = statsList.sumOf { it.rfEnterprises },
+        soluniTyulyukInzer = statsList.sumOf { it.soluniTyulyukInzer },
+        departmentStudents = statsList.sumOf { it.departmentStudents },
+        universitySubdivisions = statsList.sumOf { it.universitySubdivisions },
+        baseDepartments = statsList.sumOf { it.baseDepartments },
+        excellentGrades = statsList.sumOf { it.excellentGrades },
+        goodGrades = statsList.sumOf { it.goodGrades },
+        satisfactoryGrades = statsList.sumOf { it.satisfactoryGrades },
+        notDefended = statsList.sumOf { it.notDefended },
+        // Для дат и типа практики берем данные из первой группы
+        // (предполагается, что в рамках потока они одинаковые)
+        practiceStartDate = firstStats.practiceStartDate,
+        practiceEndDate = firstStats.practiceEndDate,
+        practiceType = firstStats.practiceType
     )
 }

@@ -167,7 +167,7 @@ private fun GenerateReportButton(
             onClick = {
                 val reportData = summaryReportData
                 val statistics = viewModel.getGroupStatistics()
-                viewModel.generateSummaryReportWithoutTemplate(reportData, statistics)
+                viewModel.generateSummaryReportWithoutTemplate(reportData, streamStatistics)
             },
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -373,7 +373,7 @@ private fun PracticeStatisticsTable(streamStatistics: Map<String, GroupStatistic
             .padding(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        TableHeaderCell("Поток", Modifier.weight(1.5f))
+        TableHeaderCell("Группа", Modifier.weight(1.5f))
         TableHeaderCell("Сроки практики", Modifier.weight(1.5f))
         TableHeaderCell(
             "Вид практики\n(учебная, произв.,\nпреддипломная, НИР)",
@@ -414,7 +414,7 @@ private fun PracticeStatisticsRow(streamName: String, stats: GroupStatistics) {
             .padding(vertical = 4.dp, horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        TableDataCell(streamName, Modifier.weight(1.5f))
+        TableDataCell(stats.groupNames.joinToString(separator = ", "), Modifier.weight(1.5f))
         TableDataCell(
             stats.practiceStartDate + "-" + stats.practiceEndDate,
             Modifier.weight(1.5f)
@@ -509,7 +509,7 @@ private fun DefenseResultsRow(streamName: String, stats: GroupStatistics) {
             .padding(vertical = 4.dp, horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        TableDataCell(streamName, Modifier.weight(2f))
+        TableDataCell(stats.groupNames.joinToString(separator = ", "), Modifier.weight(2f))
         TableDataCell(stats.totalStudents.toString(), Modifier.weight(1f))
         Row(modifier = Modifier.weight(3f)) {
             TableDataCell(stats.excellentGrades.toString(), Modifier.weight(1f))
@@ -755,7 +755,8 @@ private fun groupStatisticsByStream(groupStatistics: Map<String, GroupStatistics
         .mapValues { (streamName, groupEntries) ->
             // Объединяем статистику всех групп в потоке
             val allStats = groupEntries.map { entry -> entry.value }
-            combineGroupStatistics(streamName, allStats)
+            val originalGroupNames = groupEntries.map {it.key}
+            combineGroupStatistics(streamName, allStats, originalGroupNames)
         }
 }
 
@@ -777,7 +778,7 @@ private fun groupStatisticsByStream(groupStatistics: Map<String, GroupStatistics
 private fun extractStreamFromGroupName(groupName: String): String {
     val parts = groupName.split("-")
     return if (parts.size >= 2) {
-        parts.dropLast(1).joinToString("-")
+        parts.dropLast(1).drop(1).joinToString("-")
     } else {
         groupName // Если формат не соответствует ожидаемому, возвращаем как есть
     }
@@ -786,7 +787,7 @@ private fun extractStreamFromGroupName(groupName: String): String {
 /**
  * Объединяет статистику нескольких групп в один поток
  */
-private fun combineGroupStatistics(streamName: String, statsList: List<GroupStatistics>): GroupStatistics {
+private fun combineGroupStatistics(streamName: String, statsList: List<GroupStatistics>, originalGroupNames: List<String>): GroupStatistics {
     if (statsList.isEmpty()) {
         // Возвращаем пустую статистику если список пуст
         return GroupStatistics(
@@ -805,13 +806,13 @@ private fun combineGroupStatistics(streamName: String, statsList: List<GroupStat
             notDefended = 0,
             practiceStartDate = "",
             practiceEndDate = "",
-            practiceType = ""
+            practiceType = "",
+            groupNames = emptyList()
         )
     }
     
     // Берем первую статистику как базу для временных данных
     val firstStats = statsList.first()
-    
     return GroupStatistics(
         totalStudents = statsList.sumOf { it.totalStudents },
         foreignStudents = statsList.sumOf { it.foreignStudents },
@@ -830,6 +831,7 @@ private fun combineGroupStatistics(streamName: String, statsList: List<GroupStat
         // (предполагается, что в рамках потока они одинаковые)
         practiceStartDate = firstStats.practiceStartDate,
         practiceEndDate = firstStats.practiceEndDate,
-        practiceType = firstStats.practiceType
+        practiceType = firstStats.practiceType,
+        groupNames = originalGroupNames
     )
 }

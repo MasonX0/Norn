@@ -1927,7 +1927,7 @@ class NornViewModel {
                 groupStatistics.forEach { (groupName, stats) ->
                     val row = table.createRow()
                     val values = listOf(
-                        groupName,
+                        stats.groupNames.joinToString(separator = ", "),
                         "${stats.practiceStartDate}-${stats.practiceEndDate}",
                         stats.practiceType,
                         stats.totalStudents.toString(),
@@ -2122,7 +2122,7 @@ class NornViewModel {
                 groupStatistics.forEach { (groupName, stats) ->
                     val row = resultsTable.createRow()
                     val values = listOf(
-                        groupName,
+                        stats.groupNames.joinToString(separator = ", "),
                         stats.totalStudents.toString(),
                         stats.excellentGrades.toString(),
                         stats.goodGrades.toString(),

@@ -290,7 +290,8 @@ data class Group(
             notDefended = getCountOfStudentsWithGrade("неудов"),
             practiceStartDate = practiceStartDate,
             practiceEndDate = practiceEndDate,
-            practiceType = practiceType
+            practiceType = practiceType,
+            groupNames = emptyList()
         )
     }
 }
@@ -423,5 +424,7 @@ data class GroupStatistics(
      *
      * По умолчанию: "учебная"
      */
-    val practiceType: String
+    val practiceType: String,
+
+    val groupNames: List<String>
 )

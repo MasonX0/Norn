@@ -1,6 +1,11 @@
 package ru.bpo.norn.commonMain.models
 
 import kotlinx.serialization.Serializable
+import kotlinx.datetime.Clock
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.todayIn
 
 /**
  * Вычисляет курс обучения на основе названия группы
@@ -32,7 +37,9 @@ fun calculateCourseFromGroupName(groupName: String): Int {
 
             // Получаем текущий год (приблизительно, для расчета)
             // В реальном приложении можно использовать более точный способ получения текущего года
-            val currentYear = 2025 // TODO: заменить на актуальный текущий год
+            val timeZone = TimeZone.currentSystemDefault()
+            val today = Clock.System.todayIn(timeZone)
+            val currentYear = today.year
 
             // Рассчитываем курс
             val calculatedCourse = currentYear - fullYear

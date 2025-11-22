@@ -35,6 +35,7 @@ kotlin {
         }
         commonMain.dependencies {
             implementation("org.jetbrains.androidx.navigation:navigation-compose:2.9.0")
+            implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.4.1")
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.material3)
@@ -50,6 +51,7 @@ kotlin {
             implementation(libs.kotlin.test)
         }
         jvmMain.dependencies {
+            implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.4.1")
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutinesSwing)
             implementation("org.apache.poi:poi:5.2.4")

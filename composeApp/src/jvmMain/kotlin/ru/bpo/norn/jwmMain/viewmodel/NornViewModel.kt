@@ -3,6 +3,9 @@ package ru.bpo.norn.jwmMain.viewmodel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.datetime.Clock
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.todayIn
 import org.apache.poi.ss.usermodel.WorkbookFactory
 import org.apache.poi.xwpf.usermodel.XWPFDocument
 import org.apache.poi.xwpf.usermodel.XWPFParagraph
@@ -770,9 +773,42 @@ class NornViewModel {
         // Сохраняем изменения после обновления студентов
         saveCurrentSettings()
     }
+    fun calculateCourseFromGroupName(groupName: String): Int {
+        return try {
+            // Ищем паттерн года в названии группы (две цифры после дефиса)
+            val yearMatch = Regex("""-(\d{2})-""").find(groupName)
+            if (yearMatch != null) {
+                val twoDigitYear = yearMatch.groupValues[1].toInt()
+
+                // Преобразуем двузначный год в полный (предполагаем 20XX для годов 00-99)
+                val fullYear = 2000 + twoDigitYear
+
+                // Получаем текущий год (приблизительно, для расчета)
+                // В реальном приложении можно использовать более точный способ получения текущего года
+                val timeZone = TimeZone.currentSystemDefault()
+                val today = Clock.System.todayIn(timeZone)
+                val currentYear = today.year
+
+                // Рассчитываем курс
+                val calculatedCourse = currentYear - fullYear
+
+                // Ограничиваем курс разумными пределами (1-6)
+                when {
+                    calculatedCourse < 1 -> 1
+                    calculatedCourse > 6 -> 6
+                    else -> calculatedCourse
+                }
+            } else {
+                1 // По умолчанию первый курс, если не удалось распарсить
+            }
+        } catch (e: Exception) {
+            1 // По умолчанию первый курс при любой ошибке
+        }
+    }
     /**
      * Парсит студентов из Excel файла
      */
+
     private fun parseStudentsFromExcel(file: File): List<Student> {
         val students = mutableListOf<Student>()
         try {
@@ -787,6 +823,7 @@ class NornViewModel {
                 var branch = ""
                 var faculty = ""
                 var group = file.nameWithoutExtension
+                var course = calculateCourseFromGroupName(group)
                 var fundingType = ""
 
                 for (rowIndex in 0..sheet.lastRowNum) {
@@ -866,7 +903,7 @@ class NornViewModel {
                             students.add(
                                 Student(
                                     name = fullName,
-                                    course = 2,
+                                    course = course,
                                     codeOfDirection = "09.03.01",
                                     nameOfDirection = faculty.ifBlank { "Информатика и вычислительная техника" },
                                     group = group,

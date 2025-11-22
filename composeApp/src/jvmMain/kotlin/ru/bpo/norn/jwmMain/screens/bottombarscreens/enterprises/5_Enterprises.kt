@@ -548,6 +548,53 @@ private fun EnterpriseTypesCard(
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 // Чекбоксы для всех типов предприятий
+                EnterpriseTypeCheckbox("🌍 Зарубежное предприятие", isForeign) { checked ->
+                    if (checked) {
+                        // Uncheck all others when this is checked
+                        onForeignChange(true)
+                        onSoluniTyulyukInzerChange(false)
+                        onDepartmentChange(false)
+                        onUniversitySubdivisionChange(false)
+                        onBaseDepartmentChange(false)
+                    }
+                }
+                EnterpriseTypeCheckbox("🏔️ Солуни/Тюлюк/Инзер", isSoluniTyulyukInzer) { checked ->
+                    if (checked) {
+                        onForeignChange(false)
+                        onSoluniTyulyukInzerChange(true)
+                        onDepartmentChange(false)
+                        onUniversitySubdivisionChange(false)
+                        onBaseDepartmentChange(false)
+                    }
+                }
+                EnterpriseTypeCheckbox("🎓 Кафедра", isDepartment) { checked ->
+                    if (checked) {
+                        onForeignChange(false)
+                        onSoluniTyulyukInzerChange(false)
+                        onDepartmentChange(true)
+                        onUniversitySubdivisionChange(false)
+                        onBaseDepartmentChange(false)
+                    }
+                }
+                EnterpriseTypeCheckbox("🏛️ Структурное подразделение вуза", isUniversitySubdivision) { checked ->
+                    if (checked) {
+                        onForeignChange(false)
+                        onSoluniTyulyukInzerChange(false)
+                        onDepartmentChange(false)
+                        onUniversitySubdivisionChange(true)
+                        onBaseDepartmentChange(false)
+                    }
+                }
+                EnterpriseTypeCheckbox("🏭 Базовая кафедра", isBaseDepartment) { checked ->
+                    if (checked) {
+                        onForeignChange(false)
+                        onSoluniTyulyukInzerChange(false)
+                        onDepartmentChange(false)
+                        onUniversitySubdivisionChange(false)
+                        onBaseDepartmentChange(true)
+                    }
+                }
+                /*
                 EnterpriseTypeCheckbox("🌍 Зарубежное предприятие", isForeign, onForeignChange)
                 EnterpriseTypeCheckbox(
                     "🏔️ Солуни/Тюлюк/Инзер",
@@ -565,6 +612,7 @@ private fun EnterpriseTypesCard(
                     isBaseDepartment,
                     onBaseDepartmentChange
                 )
+                 */
             }
         }
     }

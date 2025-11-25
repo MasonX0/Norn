@@ -116,7 +116,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "Norn"
-            packageVersion = "1.1.0"
+            packageVersion = "1.2.0"
         }
     }
 }

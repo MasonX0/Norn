@@ -8,6 +8,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -708,7 +709,7 @@ fun CompactEditTextField(
         modifier = Modifier.fillMaxWidth(),
         maxLines = maxLines,
         minLines = 1,
-        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp)
+        textStyle = TextStyle(fontSize = 12.sp)
     )
 }
 
@@ -813,6 +814,14 @@ private fun combineGroupStatistics(streamName: String, statsList: List<GroupStat
     
     // Берем первую статистику как базу для временных данных
     val firstStats = statsList.first()
+    val res = mutableListOf<String>()
+    val seen = mutableSetOf<String>()
+    originalGroupNames.forEach { original ->
+        val processed = original.substringBeforeLast("-")
+        if (seen.add(processed)) {
+            res.add(processed)
+        }
+    }
     return GroupStatistics(
         totalStudents = statsList.sumOf { it.totalStudents },
         foreignStudents = statsList.sumOf { it.foreignStudents },
@@ -832,6 +841,6 @@ private fun combineGroupStatistics(streamName: String, statsList: List<GroupStat
         practiceStartDate = firstStats.practiceStartDate,
         practiceEndDate = firstStats.practiceEndDate,
         practiceType = firstStats.practiceType,
-        groupNames = originalGroupNames
+        groupNames = res.toList()
     )
 }

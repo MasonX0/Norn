@@ -61,6 +61,8 @@ class NornViewModel {
     private val _selectedGroupForDirections = MutableStateFlow<Group?>(null)
     val selectedGroupForDirections: StateFlow<Group?> = _selectedGroupForDirections.asStateFlow()
 
+
+
     private val _directionsOutputFolder = MutableStateFlow<File?>(null)
     val directionsOutputFolder: StateFlow<File?> = _directionsOutputFolder.asStateFlow()
 
@@ -131,6 +133,9 @@ class NornViewModel {
     // StateFlow для выбора групп для генерации приказа
     private val _selectedGroupsForOrder = MutableStateFlow<Set<String>>(emptySet())
     val selectedGroupsForOrder: StateFlow<Set<String>> = _selectedGroupsForOrder.asStateFlow()
+
+    private val _selectedGroupsForReport = MutableStateFlow<List<Group>>(emptyList())
+    val selectedGroupsForReport: StateFlow<List<Group>> = _selectedGroupsForReport.asStateFlow()
 
     // OrderData StateFlow
     private val _orderData = MutableStateFlow(OrderData())
@@ -1029,6 +1034,15 @@ class NornViewModel {
         }
         _selectedGroupsForOrder.value = currentSelection
     }
+    fun toggleGroupForReport(group: Group) {
+        val currentSelection = _selectedGroupsForReport.value.toMutableList()
+        if (currentSelection.contains(group)) {
+            currentSelection.remove(group)
+        } else {
+            currentSelection.add(group)
+        }
+        _selectedGroupsForReport.value = currentSelection
+    }
 
     /**
      * Выбирает все группы для генерации приказа
@@ -1037,12 +1051,18 @@ class NornViewModel {
         val allGroupNames = repository.groups.value.map { it.name }.toSet()
         _selectedGroupsForOrder.value = allGroupNames
     }
-
+    fun selectAllGroupsForReport() {
+        val allGroupNames = repository.groups.value.map { it }.toList()
+        _selectedGroupsForReport.value = allGroupNames
+    }
     /**
      * Снимает выбор со всех групп для генерации приказа
      */
     fun clearGroupsForOrder() {
         _selectedGroupsForOrder.value = emptySet()
+    }
+    fun clearGroupsForReport() {
+        _selectedGroupsForReport.value = emptyList<Group>()
     }
 
     /**
@@ -1052,6 +1072,14 @@ class NornViewModel {
         val allGroups = repository.groups.value
         val allEnterprises = _enterprisesList.value
         
+        return allGroups.associate { group ->
+            group.name to group.calculateStatistics(allEnterprises)
+        }
+    }
+    fun getGroupStatistics1(groups: List<Group>): Map<String, ru.bpo.norn.commonMain.models.GroupStatistics> {
+        val allGroups = groups
+        val allEnterprises = _enterprisesList.value
+
         return allGroups.associate { group ->
             group.name to group.calculateStatistics(allEnterprises)
         }

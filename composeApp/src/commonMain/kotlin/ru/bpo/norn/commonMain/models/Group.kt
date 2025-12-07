@@ -1,5 +1,6 @@
 package ru.bpo.norn.commonMain.models
 
+import kotlinx.coroutines.selects.OnCancellationConstructor
 import kotlinx.serialization.Serializable
 import kotlinx.datetime.Clock
 import kotlinx.datetime.LocalDate
@@ -321,17 +322,19 @@ data class Group(
  */
 @Serializable
 data class GroupStatistics(
+
+
     /**
      * Общее количество студентов в группе
      * Базовый показатель для расчета процентных соотношений
      */
-    val totalStudents: Int,
+    var totalStudents: Int,
 
     /**
      * Количество иностранных студентов в группе
      * Выделяется отдельно в статистике согласно требованиям отчетности
      */
-    val foreignStudents: Int,
+    var foreignStudents: Int,
 
     /**
      * Количество студентов на оплачиваемых местах практики

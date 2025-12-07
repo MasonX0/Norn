@@ -758,16 +758,20 @@ private fun PracticeStatisticsTable(streamStatistics: Map<String, GroupStatistic
     Divider()
 
     // Строки данных для каждого потока
+    var foreignStats = GroupStatistics(0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, "", "", "",
+        emptyList())
     streamStatistics.forEach { (streamName, stats) ->
         PracticeStatisticsRow(streamName, stats)
 
         // Дополнительная строка для иностранных студентов (если есть)
         if (stats.foreignStudents > 0) {
-            ForeignStudentsRow(stats)
+            foreignStats.foreignStudents+=stats.foreignStudents
         }
 
         Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
     }
+    ForeignStudentsRow(foreignStats)
 }
 
 /**
@@ -1113,7 +1117,8 @@ fun TableDataCell(text: String, modifier: Modifier = Modifier) {
  * @return Статистика, сгруппированная по потокам
  */
 private fun groupStatisticsByStream(groupStatistics: Map<String, GroupStatistics>): Map<String, GroupStatistics> {
-    return groupStatistics.entries
+
+    val res = groupStatistics.entries
         .groupBy { entry ->
             // Извлекаем поток из названия группы (убираем последний сегмент после дефиса)
             extractStreamFromGroupName(entry.key)
@@ -1124,6 +1129,7 @@ private fun groupStatisticsByStream(groupStatistics: Map<String, GroupStatistics
             val originalGroupNames = groupEntries.map {it.key}
             combineGroupStatistics(streamName, allStats, originalGroupNames)
         }
+    return res
 }
 
 /**
@@ -1187,7 +1193,7 @@ private fun combineGroupStatistics(streamName: String, statsList: List<GroupStat
             res.add(processed)
         }
     }
-    return GroupStatistics(
+    val stats = GroupStatistics(
         totalStudents = statsList.sumOf { it.totalStudents },
         foreignStudents = statsList.sumOf { it.foreignStudents },
         paidPracticeStudents = statsList.sumOf { it.paidPracticeStudents },
@@ -1208,4 +1214,5 @@ private fun combineGroupStatistics(streamName: String, statsList: List<GroupStat
         practiceType = firstStats.practiceType,
         groupNames = res.toList()
     )
+    return stats
 }

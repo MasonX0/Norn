@@ -1051,7 +1051,7 @@ private fun EditFormContent(
     val practiceFormOptions = listOf("стационарная", "выездная")
     val formOfStudyOptions = listOf("Бюджетная", "Платная", "Целевая")
     val practicePaymentOptions = listOf("Оплачиваемая", "Неоплачиваемая")
-    val gradeOptions = listOf("отлично", "хорошо", "удовлетворительно", "неудов")
+    val gradeOptions = listOf("отлично", "хорошо", "удовлетворительно", "Не защитили в срок")
 
     /**
      * Функция для определения кастомной цветовой схемы для заполненных полей формы

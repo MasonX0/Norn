@@ -1,5 +1,6 @@
 package ru.bpo.norn.jwmMain.viewmodel
 
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -10,10 +11,16 @@ import org.apache.poi.ss.usermodel.WorkbookFactory
 import org.apache.poi.xwpf.usermodel.XWPFDocument
 import org.apache.poi.xwpf.usermodel.XWPFParagraph
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
+import org.apache.poi.xwpf.usermodel.BreakType
+import org.apache.poi.xwpf.usermodel.XWPFRun
+import org.apache.poi.xwpf.usermodel.XWPFTable
+import org.apache.poi.xwpf.usermodel.XWPFTableCell
+import org.apache.poi.xwpf.usermodel.XWPFTableRow
 import ru.bpo.norn.commonMain.data.coursework.mock.mockData.mockStudent1
 import ru.bpo.norn.commonMain.models.Group
 import ru.bpo.norn.commonMain.models.Student
 import ru.bpo.norn.commonMain.models.Enterprise
+import ru.bpo.norn.commonMain.models.GroupStatistics
 import ru.bpo.norn.commonMain.models.PracticeSupervisor
 import ru.bpo.norn.commonMain.models.SummaryReportData
 import ru.bpo.norn.commonMain.models.OrderData
@@ -1230,6 +1237,20 @@ class NornViewModel {
 
             // Создаем новый документ
             XWPFDocument().use { document ->
+                val body = document.document.body
+                if (!body.isSetSectPr()) {
+                    body.addNewSectPr()
+                }
+                val sectPr = body.sectPr
+                if (!sectPr.isSetPgSz()) {
+                    sectPr.addNewPgSz()
+                }
+                val pgSz = sectPr.pgSz
+                // Set landscape: width > height
+                // A4 landscape: width=16838, height=11906 (in twentieths of a point)
+                pgSz.w = java.math.BigInteger.valueOf(16838)  // Width
+                pgSz.h = java.math.BigInteger.valueOf(11906)  // Height
+                pgSz.orient = STPageOrientation.LANDSCAPE  // Set orientation to landscape
                 // Заголовок документа
                 addOrderHeader(document, orderData)
 
@@ -1370,14 +1391,14 @@ class NornViewModel {
 
         // Создаем таблицу
         val table = document.createTable()
-        table.width = 10000
+        table.width = 13000
 
         // Настраиваем свойства таблицы приказа
         val ctTbl = table.ctTbl
         val tblPr = ctTbl.tblPr ?: ctTbl.addNewTblPr()
         val tblW = tblPr.tblW ?: tblPr.addNewTblW()
         tblW.type = org.openxmlformats.schemas.wordprocessingml.x2006.main.STTblWidth.DXA
-        tblW.w = java.math.BigInteger.valueOf(10000)
+        tblW.w = java.math.BigInteger.valueOf(13000)
         val tblLayout = tblPr.tblLayout ?: tblPr.addNewTblLayout()
         tblLayout.type =
             org.openxmlformats.schemas.wordprocessingml.x2006.main.STTblLayoutType.FIXED
@@ -1387,14 +1408,14 @@ class NornViewModel {
 
         // Ширины колонок для таблицы приказа
         val columnWidths = intArrayOf(
-            500,   // №пп
+            800,   // №пп
             2500,  // Ф. И. О. практиканта
-            2000,  // Наименование база практики
-            1200,  // Вид и тип практики
-            1200,  // Сроки практики
-            800,   // Форма практики
-            800,   // с оплатой/без оплаты
-            1000   // Руководитель по практике на кафедре  
+            2500,  // Наименование база практики
+            1500,  // Вид и тип практики
+            1500,  // Сроки практики
+            1000,   // Форма практики
+            1000,   // с оплатой/без оплаты
+            1500   // Руководитель по практике на кафедре
         )
 
         val headers = listOf(
@@ -1612,12 +1633,13 @@ class NornViewModel {
             "{group}" to (student.group.ifBlank { "NULL" }),
             "{course}" to student.course.toString(),
             "{c}" to student.course.toString(),
-            "{codeOfDirection}" to (student.codeOfDirection.ifBlank { "NULL" }),
+            "{codeOfDirection}" to (student.codeOfDirection.plus(" ").plus(student.nameOfDirection).ifBlank { "NULL" }),
             "{nameOfDirection}" to (student.nameOfDirection.ifBlank { "NULL" }),
             "{typeOfPractice}" to (student.typeOfPractice.ifBlank { "NULL" }),
             "{nameOfPracticeBase}" to (student.nameOfPracticeBase.ifBlank { "NULL" }),
+            "{nameOfPracticeBaseAndCity}" to (student.nameOfPracticeBase.plus(", г. ").plus(student.cityOfPractice).ifBlank { "NULL" }),
             "{cityOfPractice}" to (student.cityOfPractice.ifBlank { "NULL" }),
-            "{periodOfPractice}" to (student.periodOfPractice.ifBlank { "NULL" }),
+            "{periodOfPractice}" to ("с ".plus(student.periodOfPractice.substringBeforeLast("-").plus("г. по ").plus(student.periodOfPractice.substringAfterLast("-")).plus(" г.").ifBlank { "NULL" })),
             "{headOfPracticeFromDepartment}" to (student.headOfPracticeFromDepartment.ifBlank { "NULL" }),
             "{headOfPracticeFromPracticeBase}" to (student.headOfPracticeFromPracticeBase.ifBlank { "NULL" }),
             "{headPrac}" to (student.headOfPracticeFromPracticeBase.ifBlank { "NULL" }),
@@ -1647,6 +1669,238 @@ class NornViewModel {
     /**
      * Заменяет плейсхолдеры в параграфе Word документа с сохранением подчеркивания
      */
+    fun generateDirectionsFromTemplate1(): Boolean {
+        return try {
+            val templateFile = _directionTemplateFile.value
+            val selectedGroup = _selectedGroupForDirections.value
+
+            val outputFolder = if (_baseDirectory.value != null) {
+                _directionsOutputFolder.value ?: getOutputDirectory("Направления")
+            } else {
+                _directionsOutputFolder.value
+            }
+
+            if (templateFile == null) {
+                _directionsGenerationStatus.value = "❌ Не выбран шаблон направления"
+                return false
+            }
+
+            if (selectedGroup == null) {
+                _directionsGenerationStatus.value = "❌ Не выбрана группа"
+                return false
+            }
+
+            if (outputFolder == null) {
+                _directionsGenerationStatus.value = "❌ Выберите папку для сохранения направлений или установите базовую директорию в настройках"
+                return false
+            }
+
+            if (selectedGroup.students.isEmpty()) {
+                _directionsGenerationStatus.value = "❌ В выбранной группе нет студентов"
+                return false
+            }
+
+            _directionsGenerationStatus.value = "🔄 Создание направлений для группы ${selectedGroup.name}..."
+
+            val fileName = "Направления_${selectedGroup.name.replace(" ", "_")}_${System.currentTimeMillis()}.docx"
+            val outputFile = outputFolder.resolve(fileName)
+
+            try {
+                val success = createDirectionsInOneFile(
+                    templateFile,
+                    selectedGroup.students,
+                    outputFile
+                )
+
+                if (success) {
+                    _directionsGenerationStatus.value = "✅ Все направления созданы успешно! Файл: ${outputFile.name}"
+                    println("✅ Создан документ для группы ${selectedGroup.name} с ${selectedGroup.students.size} студентами")
+                    true
+                } else {
+                    _directionsGenerationStatus.value = "❌ Ошибка создания документа"
+                    false
+                }
+            } catch (e: Exception) {
+                _directionsGenerationStatus.value = "❌ Ошибка: ${e.message}"
+                println("❌ Исключение при создании направлений: ${e.message}")
+                e.printStackTrace()
+                false
+            }
+        } catch (e: Exception) {
+            _directionsGenerationStatus.value = "❌ Ошибка: ${e.message}"
+            println("❌ Исключение при создании направлений: ${e.message}")
+            e.printStackTrace()
+            false
+        }
+    }
+
+    private fun createDirectionsInOneFile(
+        templateFile: File,
+        students: List<Student>,
+        outputFile: File
+    ): Boolean {
+        return try {
+            // Создаем новый пустой документ
+            XWPFDocument().use { document ->
+
+                // Загружаем шаблон отдельно для копирования структуры
+                FileInputStream(templateFile).use { fis ->
+                    XWPFDocument(fis).use { templateDoc ->
+
+                        students.forEachIndexed { index, student ->
+                            val directionNumber = index + 1
+
+                            // Добавляем разрыв страницы между студентами (кроме первого)
+                            if (index > 0) {
+                                val breakParagraph = document.createParagraph()
+                                val run = breakParagraph.createRun()
+                                run.addBreak(BreakType.PAGE)
+                                document.createParagraph() // Пустая строка для отступа
+                            }
+
+                            // Копируем все элементы из шаблона для текущего студента
+                            copyDocumentContent(templateDoc, document, student, directionNumber)
+                        }
+                    }
+                }
+
+                // Сохраняем документ
+                FileOutputStream(outputFile).use { fos ->
+                    document.write(fos)
+                }
+            }
+            println("✅ Все направления созданы в одном файле")
+            true
+        } catch (e: Exception) {
+            println("❌ Ошибка при создании документа: ${e.message}")
+            e.printStackTrace()
+            false
+        }
+    }
+
+    private fun copyDocumentContent(
+        sourceDoc: XWPFDocument,
+        targetDoc: XWPFDocument,
+        student: Student,
+        directionNumber: Int
+    ) {
+        // Копируем параграфы
+        for (sourceParagraph in sourceDoc.paragraphs) {
+            val targetParagraph = targetDoc.createParagraph()
+
+            // Копируем выравнивание
+            sourceParagraph.alignment?.let {
+                targetParagraph.alignment = it
+            }
+
+            // Копируем отступы
+            sourceParagraph.indentationLeft?.let {
+                targetParagraph.indentationLeft = it
+            }
+            sourceParagraph.indentationRight?.let {
+                targetParagraph.indentationRight = it
+            }
+            sourceParagraph.indentationHanging?.let {
+                targetParagraph.indentationHanging = it
+            }
+            sourceParagraph.indentationFirstLine?.let {
+                targetParagraph.indentationFirstLine = it
+            }
+
+            // Копируем интервалы
+            sourceParagraph.spacingBefore?.let {
+                targetParagraph.spacingBefore = it
+            }
+            sourceParagraph.spacingAfter?.let {
+                targetParagraph.spacingAfter = it
+            }
+
+            // Копируем информацию о разрыве страницы
+            sourceParagraph.isPageBreak?.let {
+                targetParagraph.isPageBreak = it
+            }
+
+            // Копируем стиль
+            sourceParagraph.style?.let {
+                targetParagraph.style = it
+            }
+
+            // Обрабатываем Runs
+            for (sourceRun in sourceParagraph.runs) {
+                val targetRun = targetParagraph.createRun()
+
+                // Копируем текст с заменой плейсхолдеров
+                var runText = sourceRun.text() ?: ""
+                runText = replacePlaceholdersInText(runText, student, directionNumber)
+                targetRun.setText(runText, 0)
+
+                // Копируем свойства шрифта
+                targetRun.fontSize = sourceRun.fontSize
+                targetRun.fontFamily = sourceRun.fontFamily
+                targetRun.isBold = sourceRun.isBold
+                targetRun.isItalic = sourceRun.isItalic
+                targetRun.color = sourceRun.color
+                targetRun.textPosition = sourceRun.textPosition
+
+            }
+        }
+
+        // Копируем таблицы
+        for (sourceTable in sourceDoc.tables) {
+            // Создаем таблицу с тем же количеством строк и столбцов
+            val rowCount = sourceTable.numberOfRows
+            val colCount = sourceTable.getRow(0).tableCells.size
+            val targetTable = targetDoc.createTable(rowCount, colCount)
+
+            for (rowIndex in 0 until rowCount) {
+                val sourceRow = sourceTable.getRow(rowIndex)
+                val targetRow = targetTable.getRow(rowIndex)
+
+                // Копируем высоту строки
+                sourceRow.height?.let {
+                    targetRow.height = it
+                }
+
+                for (cellIndex in 0 until colCount) {
+                    val sourceCell = sourceRow.getCell(cellIndex)
+                    val targetCell = targetRow.getCell(cellIndex)
+
+                    // Копируем ширину ячейки
+                    sourceCell.width?.let {
+                        targetCell.setWidth(it.toString())
+                    }
+
+                    // Копируем параграфы внутри ячейки
+                    for (sourceCellParagraph in sourceCell.paragraphs) {
+                        val targetCellParagraph = targetCell.addParagraph()
+
+                        // Копируем выравнивание
+                        sourceCellParagraph.alignment?.let {
+                            targetCellParagraph.alignment = it
+                        }
+
+                        // Обрабатываем Runs в ячейке
+                        for (sourceCellRun in sourceCellParagraph.runs) {
+                            val targetCellRun = targetCellParagraph.createRun()
+
+                            // Копируем текст с заменой плейсхолдеров
+                            var cellRunText = sourceCellRun.text() ?: ""
+                            cellRunText = replacePlaceholdersInText(cellRunText, student, directionNumber)
+                            targetCellRun.setText(cellRunText, 0)
+
+                            // Копируем свойства шрифта
+                            targetCellRun.fontSize = sourceCellRun.fontSize
+                            targetCellRun.fontFamily = sourceCellRun.fontFamily
+                            targetCellRun.isBold = sourceCellRun.isBold
+                            targetCellRun.isItalic = sourceCellRun.isItalic
+                            targetCellRun.color = sourceCellRun.color
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private fun replaceInParagraph(paragraph: XWPFParagraph, student: Student, directionNumber: Int = 1) {
         val text = paragraph.text
         if (text.contains("{") && text.contains("}")) {
@@ -1890,6 +2144,20 @@ class NornViewModel {
     ): Boolean {
         return try {
             XWPFDocument().use { document ->
+                val body = document.document.body
+                if (!body.isSetSectPr()) {
+                    body.addNewSectPr()
+                }
+                val sectPr = body.sectPr
+                if (!sectPr.isSetPgSz()) {
+                    sectPr.addNewPgSz()
+                }
+                val pgSz = sectPr.pgSz
+                // Set landscape: width > height
+                // A4 landscape: width=16838, height=11906 (in twentieths of a point)
+                pgSz.w = java.math.BigInteger.valueOf(16838)  // Width
+                pgSz.h = java.math.BigInteger.valueOf(11906)  // Height
+                pgSz.orient = STPageOrientation.LANDSCAPE  // Set orientation to landscape
                 // Заголовок отчета - одна строка по центру
                 val titleParagraph = document.createParagraph()
                 titleParagraph.alignment = org.apache.poi.xwpf.usermodel.ParagraphAlignment.CENTER
@@ -1914,7 +2182,7 @@ class NornViewModel {
                 val table = document.createTable()
 
                 // Устанавливаем ширину таблицы
-                table.width = 10000 // Ширина в twentieths of a point (1440 = 1 inch)
+                table.width = 13000 // Ширина в twentieths of a point (1440 = 1 inch)
 
                 // Получаем CTTbl для настройки свойств таблицы
                 val ctTbl = table.ctTbl
@@ -1923,7 +2191,7 @@ class NornViewModel {
                 // Устанавливаем тип ширины таблицы
                 val tblW = tblPr.tblW ?: tblPr.addNewTblW()
                 tblW.type = org.openxmlformats.schemas.wordprocessingml.x2006.main.STTblWidth.DXA
-                tblW.w = java.math.BigInteger.valueOf(10000)
+                tblW.w = java.math.BigInteger.valueOf(13000)
 
                 // Устанавливаем поведение таблицы - фиксированные размеры колонок
                 val tblLayout = tblPr.tblLayout ?: tblPr.addNewTblLayout()
@@ -1935,17 +2203,17 @@ class NornViewModel {
 
                 // Определяем ширины колонок (в twentieths of a point)
                 val columnWidths = intArrayOf(
-                    1200,  // Группа
-                    1500,  // сроки практики
-                    2000,  // вид практики
-                    800,   // всего чел
-                    800,   // предприятия заруб
-                    800,   // предприятия РФ
-                    1000,  // Солуни, Тюлюк Инзер
-                    800,   // кафедра
-                    1200,  // Структурные Подразделения вуза
-                    800,   // Базовые кафедры
-                    1200   // кол-во студ. на оплачиваемых местах
+                    1500,  // Группа
+                    1700,  // сроки практики
+                    2200,  // вид практики
+                    1500,   // всего чел
+                    1500,   // предприятия заруб
+                    1500,   // предприятия РФ
+                    1500,  // Солуни, Тюлюк Инзер
+                    1500,   // кафедра
+                    1500,  // Структурные Подразделения вуза
+                    1500,   // Базовые кафедры
+                    2000   // кол-во студ. на оплачиваемых местах
                 )
 
                 val headers = listOf(
@@ -1961,7 +2229,6 @@ class NornViewModel {
                     "Базовые кафедры",
                     "кол-во студ. Прошедших практику на оплачиваемых местах"
                 )
-
                 // Добавляем недостающие ячейки и устанавливаем ширины
                 while (headerRow.tableCells.size < headers.size) {
                     headerRow.addNewTableCell()
@@ -1983,11 +2250,14 @@ class NornViewModel {
                     p.alignment = org.apache.poi.xwpf.usermodel.ParagraphAlignment.CENTER
                     val run = p.createRun()
                     run.setText(header)
-                    run.setFontSize(12)
+                    run.setFontSize(14)
                     run.setBold(false)
                     run.setFontFamily("Times New Roman")
                 }
 
+                var foreignStats = GroupStatistics(0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, "", "", "",
+                    emptyList())
                 // Добавляем данные групп
                 groupStatistics.forEach { (groupName, stats) ->
                     val row = table.createRow()
@@ -2020,45 +2290,47 @@ class NornViewModel {
                         val p = cell.addParagraph()
                         val run = p.createRun()
                         run.setText(value)
-                        run.setFontSize(12)
+                        run.setFontSize(14)
                         run.setBold(false)
                         run.setFontFamily("Times New Roman")
                     }
 
                     // Добавляем строку с иностранными студентами если есть
                     if (stats.foreignStudents > 0) {
-                        val foreignRow = table.createRow()
-                        val foreignValues = listOf(
-                            "из них иностранных студентов",
-                            "", // сроки
-                            "", // вид практики
-                            stats.foreignStudents.toString(),
-                            "0",
-                            "0",
-                            "0",
-                            stats.foreignStudents.toString(),
-                            "0",
-                            "0",
-                            "0"
-                        )
-                        foreignValues.forEachIndexed { index, value ->
-                            val cell = foreignRow.getCell(index)
-                            // Устанавливаем ширину ячейки для данных
-                            val ctTc = cell.ctTc
-                            val tcPr = ctTc.tcPr ?: ctTc.addNewTcPr()
-                            val tcW = tcPr.tcW ?: tcPr.addNewTcW()
-                            tcW.type =
-                                org.openxmlformats.schemas.wordprocessingml.x2006.main.STTblWidth.DXA
-                            tcW.w = java.math.BigInteger.valueOf(columnWidths[index].toLong())
-                            cell.removeParagraph(0)
-                            val p = cell.addParagraph()
-                            val run = p.createRun()
-                            run.setText(value)
-                            run.setFontSize(14)
-                            run.setBold(false)
-                            run.setFontFamily("Times New Roman")
-                        }
+                        foreignStats.foreignStudents+=stats.foreignStudents
+
                     }
+                }
+                val foreignRow = table.createRow()
+                val foreignValues = listOf(
+                    "из них иностранных студентов",
+                    "", // сроки
+                    "", // вид практики
+                    foreignStats.foreignStudents.toString(),
+                    "0",
+                    "0",
+                    "0",
+                    foreignStats.foreignStudents.toString(),
+                    "0",
+                    "0",
+                    "0"
+                )
+                foreignValues.forEachIndexed { index, value ->
+                    val cell = foreignRow.getCell(index)
+                    // Устанавливаем ширину ячейки для данных
+                    val ctTc = cell.ctTc
+                    val tcPr = ctTc.tcPr ?: ctTc.addNewTcPr()
+                    val tcW = tcPr.tcW ?: tcPr.addNewTcW()
+                    tcW.type =
+                        org.openxmlformats.schemas.wordprocessingml.x2006.main.STTblWidth.DXA
+                    tcW.w = java.math.BigInteger.valueOf(columnWidths[index].toLong())
+                    cell.removeParagraph(0)
+                    val p = cell.addParagraph()
+                    val run = p.createRun()
+                    run.setText(value)
+                    run.setFontSize(14)
+                    run.setBold(false)
+                    run.setFontFamily("Times New Roman")
                 }
 
                 // Пустые строки
@@ -2269,7 +2541,7 @@ class NornViewModel {
         return try {
             val templateFile = _directionTemplateFile.value
             val selectedGroup = _selectedGroupForDirections.value
-            
+
             // Логика выбора папки: если базовая директория установлена - используем подпапку,
             // если нет - требуем явного выбора папки
             val outputFolder = if (_baseDirectory.value != null) {

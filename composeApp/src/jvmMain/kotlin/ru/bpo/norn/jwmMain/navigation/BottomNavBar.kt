@@ -111,34 +111,7 @@ fun BottomNavBar(
         )
 
         // Кнопка экрана 7
-        NavigationBarItem(
-            icon = { Text("📊", style = MaterialTheme.typography.titleMedium) },
-            label = { Text("Ведомости") },
-            selected = currentScreen is Screen.Screen7,
-            onClick = { onNavigationClick(Screen.Screen7) },
-            colors = NavigationBarItemColors(
-                // Цвет иконки ВЫБРАННОГО элемента
-                selectedIconColor = MaterialTheme.colorScheme.onPrimary,
 
-                // Цвет текста ВЫБРАННОГО элемента
-                selectedTextColor = MaterialTheme.colorScheme.primary,
-
-                // Цвет индикатора (подсветки) ВЫБРАННОГО элемента
-                selectedIndicatorColor = MaterialTheme.colorScheme.primary,
-
-                // Цвет иконки НЕВЫБРАННОГО элемента
-                unselectedIconColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.38f),
-
-                // Цвет текста НЕВЫБРАННОГО элемента
-                unselectedTextColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.38f),
-
-                // Цвет иконки ОТКЛЮЧЕННОГО элемента
-                disabledIconColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.38f),
-
-                // Цвет текста ОТКЛЮЧЕННОГО элемента
-                disabledTextColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.38f),
-            )
-        )
 
         // Кнопка экрана 8
         NavigationBarItem(

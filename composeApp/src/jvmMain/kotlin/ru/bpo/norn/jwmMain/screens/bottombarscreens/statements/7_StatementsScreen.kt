@@ -66,7 +66,6 @@ fun StatementsScreen(viewModel: NornViewModel) {
         ) {
             Text("Выбрать PDF документ\n(ведомости)")
         }
-
         // Кнопка генерации документа на основе выбранного файла
         Button(
             onClick = {
